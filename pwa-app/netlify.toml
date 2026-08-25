@@ -1,0 +1,24 @@
+# Configuración de Netlify para el sitio de Memoreo. Ver README.md,
+# "Desplegar en Netlify", para la guía paso a paso.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+
+# URLs limpias: el frontend llama a /api/algo (ver src/stripeClient.js) y
+# esto lo redirige a la función real en /.netlify/functions/algo.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Todo lo demás (rutas de la propia app) se sirve como una sola página —
+# no hace falta hoy porque la app es de una sola pantalla con enrutamiento
+# en JavaScript, pero deja el sitio listo si en el futuro usa rutas propias.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
