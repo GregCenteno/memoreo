@@ -1,0 +1,53 @@
+// Cliente del panel de administrador: llama a /api/admin-metrics
+// (netlify/functions/admin-metrics.mjs), que lee de Netlify Blobs — el
+// mismo lugar donde src/adminTrack.js va guardando un perfil mínimo
+// (nombre, correo, plan) cada vez que alguien se registra, inicia sesión o
+// cambia de plan de verdad. Sin ese backend desplegado (ver README.md,
+// "Cómo funciona el panel de administrador") esto no tiene nada que
+// mostrar — no hay ningún dato de ejemplo ni modo demo aquí: si
+// /api/admin-metrics no responde, el error se muestra tal cual.
+//
+// El panel ya no vive en una página aparte (admin.html) — se entra
+// escribiendo el usuario y la contraseña de administrador en el mismo
+// formulario de "Iniciar sesión" que usa cualquier cuenta (ver
+// postRenderAuth() y tryAdminAuth() en app.js). El usuario y la contraseña
+// se guardan solo en sessionStorage (se borran al cerrar la pestaña),
+// nunca en localStorage — esto es una cortina simple, no un sistema de
+// autenticación real: ver la nota en admin-metrics.mjs.
+const API_BASE = import.meta.env.VITE_API_BASE || '';
+const SESSION_KEY = 'memoreo_admin_session_v1';
+
+export function loadAdminSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function saveAdminSession(creds) {
+  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(creds)); }
+  catch (e) { /* almacenamiento no disponible — la sesión solo dura esta pantalla */ }
+}
+
+export function clearAdminSession() {
+  try { sessionStorage.removeItem(SESSION_KEY); }
+  catch (e) { /* nada que limpiar */ }
+}
+
+export async function fetchAdminMetrics(creds) {
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/admin-metrics`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(creds)
+    });
+  } catch (e) {
+    throw new Error(`No se pudo conectar con el servidor (${API_BASE || location.origin}). ¿Está desplegado en Netlify o corriendo "netlify dev"?`);
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.ok) throw new Error(body.error || `El servidor respondió con un error (${res.status}).`);
+  return body;
+}
