@@ -1,0 +1,765 @@
+/* =========================================================
+   Memoreo — design tokens & styles
+   Mobile-first. Bold 2026 identity: deep turquoise + raspberry
+   magenta accent on a cool violet-neutral ground, Bricolage
+   Grotesque + Hanken Grotesk throughout.
+   ========================================================= */
+
+:root{
+  --bg: #F3F1F8;
+  --surface: #FFFFFF;
+  --surface-alt: #F7F5FB;
+  --surface-sunken: #ECE8F3;
+  --ink: #18131F;
+  --ink-soft: #6B6379;
+  --ink-faint: #9C93A9;
+
+  /* Brand (deep turquoise): --brand is for text/links/icons directly on
+     a neutral surface (tuned per theme for contrast); --brand-solid is the
+     constant fill used for buttons/FAB/chips, always paired with white. */
+  --brand: #0A7A78;
+  --brand-solid: #0EA5A6;
+  --brand-solid-dark: #075E5C;
+  --brand-ink: #06413F;
+  --brand-soft: #D8F5F3;
+
+  /* Accent (raspberry magenta): secondary highlight, distinct from brand + critical. */
+  --accent: #C71368;
+  --accent-soft: #FCE0EE;
+
+  --critical: #DC2626;
+  --critical-soft: #FCE0DF;
+  --warn: #C27700;
+  --warn-soft: #FBECC7;
+  --ok: #0F9D58;
+  --ok-soft: #D9F5E3;
+
+  --border: rgba(24,19,31,0.10);
+  --border-soft: rgba(24,19,31,0.06);
+  --shadow-color: 24,19,31;
+  --focus: #0A7A78;
+
+  --font-display: "Bricolage Grotesque", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Hanken Grotesk", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg: #120E17; --surface: #1C1722; --surface-alt: #241E2C; --surface-sunken: #16121C;
+    --ink: #F7F3FA; --ink-soft: #B3A8BF; --ink-faint: #786D86;
+    --brand: #4FE0DB; --brand-ink: #E4FFFC; --brand-soft: #0B302E;
+    --accent: #FF6FB4; --accent-soft: #3A1428;
+    --critical: #F87171; --critical-soft: #3A1616;
+    --warn: #FFC24D; --warn-soft: #3A2A08;
+    --ok: #4CE0A0; --ok-soft: #0F3324;
+    --border: rgba(247,243,250,0.12); --border-soft: rgba(247,243,250,0.07);
+    --shadow-color: 0,0,0; --focus: #4FE0DB;
+  }
+}
+:root[data-theme="dark"]{
+  --bg: #120E17; --surface: #1C1722; --surface-alt: #241E2C; --surface-sunken: #16121C;
+  --ink: #F7F3FA; --ink-soft: #B3A8BF; --ink-faint: #786D86;
+  --brand: #4FE0DB; --brand-ink: #E4FFFC; --brand-soft: #0B302E;
+  --accent: #FF6FB4; --accent-soft: #3A1428;
+  --critical: #F87171; --critical-soft: #3A1616;
+  --warn: #FFC24D; --warn-soft: #3A2A08;
+  --ok: #4CE0A0; --ok-soft: #0F3324;
+  --border: rgba(247,243,250,0.12); --border-soft: rgba(247,243,250,0.07);
+  --shadow-color: 0,0,0; --focus: #4FE0DB;
+}
+
+*{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+html,body{ margin:0; padding:0; height:100%; }
+body{
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  overflow-x:hidden;
+}
+::selection{ background: var(--brand-soft); color: var(--brand-ink); }
+/* Sin "color: inherit" aquí, un <button> usa el color de texto que el
+   navegador le pone por defecto a los controles de formulario en vez del
+   --ink del tema — y ese color por defecto no siempre reacciona igual al
+   modo oscuro según el sistema/navegador (a veces se ve bien "de casualidad",
+   a veces se queda negro sobre fondo oscuro, como en .cat-tile). Los botones
+   con su propio color (.btn-primary, etc.) lo siguen imponiendo sin problema,
+   porque una regla con clase le gana a esta de solo el elemento. */
+button{ font-family: inherit; color: inherit; }
+input, textarea{ font-family: inherit; }
+a{ color: inherit; }
+:focus-visible{ outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+.icon{ width:1em; height:1em; display:inline-block; vertical-align:-0.15em; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+/* ---------- App shell ---------- */
+#app{ display:flex; justify-content:center; min-height:100dvh; }
+.app{
+  width:100%;
+  max-width:480px;
+  height:100dvh;
+  background: var(--surface);
+  display:flex;
+  flex-direction:column;
+  position:relative;
+}
+
+.screen{
+  order:2;
+  flex:1 1 auto;
+  min-width:0;
+  overflow-y:auto;
+  /* Además de los 18px normales, deja el espacio de la muesca/isla dinámica
+     del iPhone — importa sobre todo en Bienvenida e Iniciar sesión, las
+     únicas pantallas sin .header-bar arriba (ahí el safe-area-inset-top ya
+     lo cubre .header-bar), para que ni el título ni los campos del
+     formulario queden pegados al borde real de la pantalla. */
+  padding: calc(18px + env(safe-area-inset-top)) 18px 92px;
+}
+
+.topbar{ display:flex; align-items:center; gap:10px; margin-bottom:18px; min-height:40px; }
+.icon-btn{
+  width:40px; height:40px; border-radius:12px; border:1px solid var(--border);
+  background: var(--surface); color: var(--ink);
+  display:flex; align-items:center; justify-content:center; font-size:1.1rem;
+  cursor:pointer; flex-shrink:0;
+}
+.icon-btn:active{ transform: scale(0.94); }
+.topbar h1{ font-family: var(--font-display); font-weight:800; font-size:1.3rem; margin:0; letter-spacing:-0.01em; }
+.topbar .sub{ font-size:0.78rem; color:var(--ink-soft); margin-top:2px; }
+
+.greeting{ margin: 4px 0 18px; }
+.greeting h1{ font-family: var(--font-display); font-weight:800; font-size:1.7rem; letter-spacing:-0.02em; margin:0 0 4px; }
+.greeting p{ margin:0; color:var(--ink-soft); font-size:0.88rem; }
+
+.search-entry{
+  display:flex; align-items:center; gap:10px; width:100%;
+  padding: 13px 16px; border-radius:16px; border:1px solid var(--border);
+  background: var(--surface-alt); color: var(--ink-soft); font-size:0.92rem;
+  margin-bottom:22px; cursor:pointer; text-align:left;
+}
+.search-entry .icon{ color: var(--ink-faint); font-size:1.1rem; }
+
+.section-head{ display:flex; align-items:baseline; justify-content:space-between; margin: 0 0 12px; }
+.section-head h2{ font-family: var(--font-display); font-weight:700; font-size:1.05rem; margin:0; }
+.section-head .link{ font-size:0.78rem; color: var(--brand); font-weight:600; background:none; border:none; cursor:pointer; padding:4px; }
+
+.urgent-row{ display:flex; gap:12px; overflow-x:auto; padding: 2px 2px 12px; margin: 0 -2px 6px; scroll-snap-type: x proximity; }
+.urgent-row::-webkit-scrollbar{ display:none; }
+.urgent-card{
+  scroll-snap-align:start; flex: 0 0 auto; width: 172px; border-radius:18px; padding:14px;
+  background: var(--surface); border:1px solid var(--border); cursor:pointer;
+  display:flex; flex-direction:column; gap:10px;
+}
+.urgent-card:active{ transform: scale(0.98); }
+.urgent-card .name{ font-weight:600; font-size:0.9rem; line-height:1.3; }
+.urgent-card .cat{ font-size:0.72rem; color:var(--ink-soft); }
+
+.badge{
+  display:inline-flex; align-items:center; gap:5px; font-family: var(--font-body);
+  font-size:0.76rem; font-weight:600; padding: 4px 9px; border-radius:100px; letter-spacing: 0;
+  width: fit-content;
+}
+.badge.crit{ background: var(--critical-soft); color: var(--critical); }
+.badge.warn{ background: var(--warn-soft); color: var(--warn); }
+.badge.ok{ background: var(--ok-soft); color: var(--ok); }
+.badge.none{ background: var(--surface-sunken); color: var(--ink-faint); }
+.badge .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0; }
+
+/* Semáforo de prioridad: el mismo punto rojo/ámbar/verde en cada fila de
+   lista (no solo en las tarjetas "vence pronto"), para que la urgencia se
+   lea de un vistazo sin tener que leer el texto. */
+.urg-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; flex-shrink:0; vertical-align:middle; position:relative; top:-1px; }
+.urg-dot.crit{ background: var(--critical); }
+.urg-dot.warn{ background: var(--warn); }
+.urg-dot.ok{ background: var(--ok); }
+.urg-dot.none{ background: var(--ink-faint); opacity:0.5; }
+
+.cat-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:10px; margin-bottom:24px; }
+.cat-tile{
+  position:relative; border-radius:16px; border:1px solid var(--border); background: var(--surface);
+  padding:14px 10px 12px; display:flex; flex-direction:column; align-items:flex-start; gap:10px;
+  cursor:pointer; text-align:left; color: var(--ink);
+}
+.cat-tile:active{ transform: scale(0.97); }
+.cat-tile .cat-icon{ width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; background:var(--cc-soft); color:var(--cc); }
+.cat-tile .cat-label{ font-size:0.82rem; font-weight:600; }
+.cat-tile .cat-count{ font-size:0.7rem; color:var(--ink-soft); font-family: var(--font-mono); }
+.cat-tile .lock{ position:absolute; top:10px; right:10px; width:20px; height:20px; border-radius:50%; background: var(--surface-sunken); display:flex; align-items:center; justify-content:center; color: var(--ink-faint); font-size:0.65rem; }
+
+.doc-list{ display:flex; flex-direction:column; gap:10px; }
+.doc-card{ display:flex; align-items:center; gap:12px; padding:12px; border-radius:16px; border:1px solid var(--border); background: var(--surface); cursor:pointer; }
+.doc-card:active{ transform: scale(0.99); }
+.doc-thumb{ width:46px; height:46px; border-radius:12px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1.2rem; overflow:hidden; background: var(--cc-soft); color: var(--cc); }
+.doc-thumb img{ width:100%; height:100%; object-fit:cover; }
+.doc-info{ flex:1; min-width:0; }
+.doc-info .name{ font-weight:600; font-size:0.92rem; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.doc-info .meta{ font-size:0.76rem; color:var(--ink-soft); }
+.chev{ color: var(--ink-faint); flex-shrink:0; font-size:1rem; }
+
+.empty-state{ text-align:center; padding: 40px 20px; color: var(--ink-soft); }
+.empty-state .icon{ font-size:2.2rem; color:var(--ink-faint); margin-bottom:10px; }
+.empty-state p{ margin:0; font-size:0.88rem; line-height:1.5; }
+
+.install-banner{ display:flex; align-items:center; gap:12px; background: var(--brand-soft); border-radius:16px; padding:12px 14px; margin-bottom:20px; color: var(--brand-ink); }
+.install-banner .icon{ font-size:1.3rem; color:var(--brand); flex-shrink:0; }
+.install-banner .txt{ flex:1; font-size:0.78rem; line-height:1.4; }
+.install-banner .txt b{ display:block; font-size:0.85rem; margin-bottom:1px; }
+.install-banner button.dismiss{ border:none; background:none; color:var(--ink-faint); cursor:pointer; font-size:1rem; padding:4px; }
+.install-banner button.install-cta{ border:none; background:var(--brand-solid); color:#fff; font-weight:600; font-size:0.76rem; padding:8px 12px; border-radius:100px; cursor:pointer; flex-shrink:0; }
+
+.c-personal{ --cc: var(--brand); --cc-soft: var(--brand-soft); }
+.c-garantias{ --cc: var(--accent); --cc-soft: var(--accent-soft); }
+.c-seguros{ --cc: #1D7AFB; --cc-soft: #DCE9FE; }
+.c-vehiculo{ --cc: #8B3DFF; --cc-soft: #EDE4FE; }
+.c-hogar{ --cc: #E24A1F; --cc-soft: #FDE1D6; }
+.c-estudios{ --cc: #B8860B; --cc-soft: #F8ECC9; }
+.c-facturacion{ --cc: #0E7C9E; --cc-soft: #DBEFF5; }
+.c-pagos{ --cc: #4C5FD5; --cc-soft: #E3E5FB; }
+.c-prestamos{ --cc: var(--ok); --cc-soft: var(--ok-soft); }
+.c-salud{ --cc: var(--critical); --cc-soft: var(--critical-soft); }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .c-seguros{ --cc:#6FA8FF; --cc-soft:#152A47; }
+  :root:not([data-theme="light"]) .c-vehiculo{ --cc:#B98CFF; --cc-soft:#291F45; }
+  :root:not([data-theme="light"]) .c-hogar{ --cc:#FF8A66; --cc-soft:#3A2015; }
+  :root:not([data-theme="light"]) .c-estudios{ --cc:#F0C349; --cc-soft:#3A2E0A; }
+  :root:not([data-theme="light"]) .c-facturacion{ --cc:#5FD1EE; --cc-soft:#12313A; }
+  :root:not([data-theme="light"]) .c-pagos{ --cc:#8B93FF; --cc-soft:#262A52; }
+}
+:root[data-theme="dark"] .c-seguros{ --cc:#6FA8FF; --cc-soft:#152A47; }
+:root[data-theme="dark"] .c-vehiculo{ --cc:#B98CFF; --cc-soft:#291F45; }
+:root[data-theme="dark"] .c-hogar{ --cc:#FF8A66; --cc-soft:#3A2015; }
+:root[data-theme="dark"] .c-estudios{ --cc:#F0C349; --cc-soft:#3A2E0A; }
+:root[data-theme="dark"] .c-facturacion{ --cc:#5FD1EE; --cc-soft:#12313A; }
+:root[data-theme="dark"] .c-pagos{ --cc:#8B93FF; --cc-soft:#262A52; }
+
+/* ---------- Barra de navegación ----------
+   Dos versiones muy distintas a propósito, cada una pensada para su propio
+   tamaño de pantalla — no una sola barra reacomodada con media queries:
+
+   - CELULAR (.screen-sticky-head, abajo): Inicio/Buscar/Avisos/Perfil ya NO
+     es una barra fija aparte arriba de todo. Cada pantalla la trae metida en
+     su propio contenido (ver navTabsHtml() en views.js), junto con lo que
+     esa pantalla ya tenía arriba (el saludo + buscador en Inicio, el topbar
+     en el resto) — las dos cosas envueltas juntas en .screen-sticky-head, no
+     solo el menú, para que TODO ese bloque (saludo, buscador y menú, o
+     topbar y menú) se quede inmóvil de una sola pieza en cuanto la persona
+     empieza a bajar para ver las categorías o lo agregado recientemente, en
+     vez de que el saludo y el buscador se vayan con el scroll y solo el
+     menú se quede pegado después. Arriba de todo sigue quedando el padding
+     normal de .screen (espacio en blanco antes de que empiece este bloque,
+     mientras no se haya hecho scroll todavía).
+   - ESCRITORIO (.header-bar, más abajo): con mouse no hace falta ahorrar
+     ese primer scroll, así que ahí se queda la barra fija de siempre
+     arriba de todo — ver el media query de 640px donde una se apaga y
+     empieza la otra (y donde .screen-sticky-head vuelve a ser contenido
+     normal, sin fijarse a ningún lado). */
+.screen-sticky-head{
+  position:sticky; top:0; z-index:20;
+  display:flex; flex-direction:column;
+  /* Se sale del padding lateral de .screen (18px) para tocar los bordes
+     como una barra de verdad, no una tarjeta angosta flotando adentro. */
+  margin: 0 -18px 18px;
+  padding: 0 18px 8px;
+  background: var(--surface); border-bottom:1px solid var(--border);
+}
+.tabbar-inline{
+  display:flex; flex-direction:row; align-items:center; justify-content:center;
+  flex-wrap:wrap;
+  gap:6px;
+  padding-top: 8px;
+}
+.header-bar{
+  order:1;
+  flex-shrink:0;
+  display:flex; flex-direction:column;
+  background: var(--surface); border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:30;
+  padding-top: calc(10px + env(safe-area-inset-top));
+}
+.header-search{
+  display:flex; align-items:center; gap:10px; width:100%;
+  border:none; background:none; color: var(--ink-soft); font-size:0.9rem; font-family:inherit;
+  padding: 8px 16px 10px; margin:0; cursor:pointer; text-align:left;
+}
+.header-search .icon{ color: var(--ink-faint); font-size:1.1rem; flex-shrink:0; }
+.header-search.hidden-on-search{ display:none; }
+.tabbar{
+  display:flex; flex-direction:row; align-items:center; justify-content:center;
+  flex-wrap:wrap;
+  gap:6px;
+  padding: 0 12px 10px;
+}
+/* En celular, la barra fija de arriba (pensada para escritorio) no se usa
+   — queda oculta desde el inicio, en vez de mostrarse un instante y
+   desaparecer, para que nunca compita con la de adentro de cada pantalla. */
+@media (max-width: 639.98px){
+  .header-bar{ display:none !important; }
+}
+.tab{ background:none; border:none; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color: var(--ink-faint); font-size:0.66rem; font-weight:600; line-height:1.15; padding:8px 16px; border-radius:12px; flex:0 0 auto; }
+.tab .icon{ font-size:1.2rem; }
+.tab:active{ background: var(--surface-alt); }
+.tab.active{ color: var(--brand); background: var(--brand-soft); }
+
+/* Botón de Agregar: un elemento propio (#fabBtn en el HTML de initApp), NO
+   uno de los botones de .tabbar — así su posición flotante en la esquina
+   inferior izquierda de .app no depende en nada de la barra de navegación
+   (que ahora es sticky, y por lo tanto ya es su propio "contenedor de
+   posicionamiento" — meterlo ahí adentro rompía este cálculo). Al ser hijo
+   directo de .app (position:relative), "bottom/left" se miden contra .app
+   completo, sin importar cuánto mida la barra de arriba. */
+.fab-tab{
+  position:absolute; left:14px; bottom: calc(14px + env(safe-area-inset-bottom));
+  border:none; background:none; padding:0; margin:0; cursor:pointer; z-index:40;
+}
+.fab-tab .fab{ width:52px; height:52px; border-radius:50%; background: var(--brand-solid); color: #fff; display:flex; align-items:center; justify-content:center; font-size:1.5rem; box-shadow: 0 12px 22px -6px rgba(227,28,121,0.5); border: 4px solid var(--surface); }
+.fab-tab:active .fab{ transform: scale(0.94); }
+
+/* ---------- Buttons / form ---------- */
+.btn{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:15px 18px; border-radius:14px; border:none; font-weight:600; font-size:0.95rem; cursor:pointer; }
+.btn:active{ transform: scale(0.98); }
+.btn-primary{ background: var(--brand-solid); color:#fff; }
+.btn-primary:disabled{ background: var(--surface-sunken); color: var(--ink-faint); cursor:not-allowed; }
+.btn-primary:disabled:active{ transform:none; }
+.btn-ghost{ background: var(--surface-alt); color: var(--ink); border:1px solid var(--border); }
+.btn-outline{ background:transparent; color: var(--brand); border:1.5px solid var(--brand); }
+.btn-danger{ background: var(--critical-soft); color: var(--critical); }
+
+.field{ margin-bottom:18px; }
+.field label{ display:block; font-size:0.78rem; font-weight:600; color:var(--ink-soft); margin-bottom:7px; text-transform:uppercase; letter-spacing:0.04em; }
+.field input[type="text"], .field input[type="date"], .field input[type="tel"], .field textarea{
+  width:100%; padding:13px 14px; border-radius:12px; border:1.5px solid var(--border);
+  background: var(--surface-alt); color: var(--ink); font-size:16px;
+}
+.field textarea{ resize:vertical; min-height:70px; line-height:1.5; }
+.field input:focus, .field textarea:focus{ border-color: var(--brand); background: var(--surface); }
+
+.chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.chip{ padding:9px 14px; border-radius:100px; border:1.5px solid var(--border); background: var(--surface-alt); color: var(--ink-soft); font-size:0.82rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+.chip.selected{ background: var(--brand-solid); border-color:var(--brand-solid); color:#fff; }
+.chip.chip-locked{ opacity:0.55; cursor:pointer; }
+.chip.chip-locked .icon{ font-size:0.85em; }
+
+.plan-nudge{ display:flex; align-items:flex-start; gap:10px; background: var(--surface-alt); border:1px solid var(--border); border-radius:14px; padding:12px 14px; margin-bottom:16px; font-size:0.8rem; line-height:1.5; color:var(--ink-soft); }
+.plan-nudge .icon{ color: var(--ink-faint); flex-shrink:0; margin-top:1px; }
+.plan-nudge b{ color: var(--ink); }
+.plan-nudge .link{ background:none; border:none; color:var(--brand); font-weight:700; font-size:0.8rem; cursor:pointer; padding:0; margin-top:6px; display:block; }
+
+/* Pruebas de laboratorio: campos numéricos por tipo de prueba. */
+.lab-fields-grid{ display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; }
+.lab-field label{ display:block; font-size:0.72rem; font-weight:600; color:var(--ink-soft); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.03em; }
+.lab-field input{ width:100%; }
+
+/* Tarjeta de estado de la prueba gratis en Perfil: gradiente ámbar propio
+   (no mezcla con --brand, para no verse lodoso si en el futuro se permitiera
+   accent personalizado aquí) que además funciona como su propio código de
+   color de "atención" junto al semáforo rojo/ámbar/verde del resto de la app. */
+.plan-card.trial{ background: linear-gradient(155deg, #D97706 0%, #92400E 100%); }
+.plan-card.trial .btn.btn-ghost{ background: rgba(255,255,255,0.18); color:#fff; border:none; }
+
+.upload-box{ border:2px dashed var(--border); border-radius:18px; padding:26px 16px; text-align:center; color: var(--ink-soft); cursor:pointer; margin-bottom:20px; background: var(--surface-alt); display:block; }
+.upload-box .icon{ font-size:1.7rem; color: var(--brand); margin-bottom:8px; }
+.upload-box .t1{ font-weight:600; font-size:0.9rem; color:var(--ink); margin-bottom:3px; }
+.upload-box .t2{ font-size:0.76rem; }
+.upload-preview{ display:flex; align-items:center; gap:12px; border-radius:16px; border:1px solid var(--border); padding:10px; margin-bottom:20px; background:var(--surface-alt); }
+.upload-preview img{ width:50px; height:50px; border-radius:10px; object-fit:cover; }
+.upload-preview .ph{ width:50px; height:50px; border-radius:10px; background:var(--brand-soft); color:var(--brand); display:flex;align-items:center;justify-content:center; font-size:1.2rem; }
+.upload-preview .fname{ flex:1; font-size:0.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.upload-preview button{ background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:1rem; }
+
+.toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:2px 0; }
+.toggle-row .t{ font-size:0.9rem; font-weight:600; }
+.switch{ width:44px; height:26px; border-radius:100px; background:var(--surface-sunken); border:1px solid var(--border); position:relative; cursor:pointer; flex-shrink:0; }
+.switch::after{ content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:transform .15s; }
+.switch.on{ background: var(--brand-solid); }
+.switch.on::after{ transform: translateX(18px); }
+
+/* ---------- Detail ---------- */
+.detail-hero{ border-radius:20px; padding:22px 18px; background: var(--cc-soft, var(--surface-alt)); margin-bottom:18px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px; }
+.detail-hero .icon-lg{ width:66px; height:66px; border-radius:18px; background: var(--surface); color: var(--cc, var(--brand)); display:flex; align-items:center; justify-content:center; font-size:1.9rem; overflow:hidden; }
+.detail-hero .icon-lg img{ width:100%; height:100%; object-fit:cover; }
+.detail-hero h1{ font-family: var(--font-display); font-weight:800; font-size:1.4rem; letter-spacing:-0.01em; margin:0; }
+
+.info-card{ background: var(--surface-alt); border-radius:16px; padding: 4px 16px; margin-bottom:16px; }
+.info-row{ display:flex; justify-content:space-between; align-items:center; padding:13px 0; border-bottom:1px solid var(--border-soft); gap:12px; }
+.info-row:last-child{ border-bottom:none; }
+.info-row .k{ font-size:0.8rem; color: var(--ink-soft); flex-shrink:0; }
+.info-row .v{ font-size:0.86rem; font-weight:600; text-align:right; font-family: var(--font-mono); }
+.info-row .v.wrap{ font-family: var(--font-body); font-weight:500; text-align:right; }
+
+.action-row{ display:flex; gap:10px; margin-top:6px; }
+
+/* ---------- Sheet / modal ---------- */
+.sheet-backdrop{ position:fixed; inset:0; background: rgba(10,15,13,0.5); z-index:50; display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition: opacity .18s; }
+.sheet-backdrop.show{ opacity:1; pointer-events:auto; }
+/* max-height + overflow-y propios: sin esto, una hoja con mucho contenido
+   (Seguridad y privacidad, Mi plan con sus 3 opciones) podía crecer más alta
+   que la pantalla del celular — se salía por arriba sin poder hacerle scroll
+   ella misma, dejando atrapada a la persona sin ver ningún botón para
+   cerrarla. Ahora la hoja nunca mide más que el alto disponible: si el
+   contenido no cabe, hace scroll adentro de sí misma (ver .sheet-topbar más
+   abajo, que se queda pegado arriba durante ese scroll). */
+.sheet{
+  width:100%; max-width:480px; background: var(--surface); border-radius:22px 22px 0 0;
+  padding: 0 20px calc(22px + env(safe-area-inset-bottom));
+  transform: translateY(12px); transition: transform .18s;
+  max-height: min(640px, 88dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sheet-backdrop.show .sheet{ transform: translateY(0); }
+.sheet-handle{ width:38px; height:4px; border-radius:2px; background:var(--border); margin: 6px auto 16px; }
+/* Botón de cerrar (✕): siempre visible arriba a la derecha de la hoja, pegado
+   (sticky) para no perderse aunque la hoja tenga que hacerle scroll a su
+   contenido — antes la única forma de salir de hojas como Seguridad y
+   privacidad o Mi plan era tocar exactamente el fondo oscuro de afuera, que
+   ni se ve ni es obvio que sirve para eso. */
+.sheet-topbar{
+  position:sticky; top:0; z-index:5;
+  display:flex; justify-content:flex-end;
+  margin: 0 -20px; padding: 10px 12px 0;
+  background: var(--surface);
+}
+.sheet-close{
+  width:34px; height:34px; border-radius:50%; border:none;
+  background: var(--surface-alt); color: var(--ink-soft);
+  display:flex; align-items:center; justify-content:center; font-size:1rem;
+  cursor:pointer; flex-shrink:0;
+}
+.sheet-close:active{ transform: scale(0.94); }
+.sheet h3{ font-family: var(--font-display); font-size:1.15rem; margin:0 0 8px; }
+.sheet p{ font-size:0.86rem; color:var(--ink-soft); line-height:1.55; margin:0 0 20px; }
+.sheet .btn{ margin-bottom:10px; }
+
+.email-preview{ background:var(--surface-alt); border:1px solid var(--border-soft); border-radius:14px; padding:14px 16px; margin-bottom:18px; }
+.email-preview-row{ display:flex; gap:8px; font-size:0.78rem; padding:5px 0; border-bottom:1px solid var(--border-soft); }
+.email-preview-row:last-of-type{ border-bottom:none; }
+.email-preview-row span{ color:var(--ink-faint); flex-shrink:0; width:52px; }
+.email-preview-row b{ font-weight:600; word-break:break-word; }
+.email-preview-body{ margin-top:10px; padding-top:12px; border-top:1px dashed var(--border); font-size:0.85rem; line-height:1.55; }
+.email-preview-body p{ margin:0 0 10px; color:var(--ink); }
+.email-preview-body p:last-child{ margin-bottom:0; }
+
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed; left:50%; bottom:88px; transform: translate(-50%, 20px);
+  width: calc(100% - 36px); max-width: 444px;
+  background: var(--ink); color: var(--bg); padding: 12px 16px; border-radius:14px;
+  font-size:0.85rem; font-weight:600; display:flex; align-items:center; gap:8px;
+  opacity:0; transition: all .2s; pointer-events:none; z-index:60;
+}
+.toast.show{ transform: translate(-50%, 0); opacity:1; }
+.toast .icon{ color: var(--ok); flex-shrink:0; }
+
+/* ---------- Search / filters ---------- */
+.search-bar{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:14px; border:1.5px solid var(--border); background: var(--surface-alt); margin-bottom:16px; }
+.search-bar .icon{ color: var(--ink-faint); flex-shrink:0; }
+/* font-size debe ser 16px (no rem/em de menos de 16px) — Safari en iOS hace
+   zoom automático al enfocar cualquier input con texto más chico que eso.
+   Es el mismo motivo por el que los .field input de abajo también usan
+   16px en vez de un rem menor. */
+.search-bar input{ border:none; background:none; outline:none; flex:1; font-size:16px; color:var(--ink); }
+.search-bar input::placeholder{ color: var(--ink-faint); }
+
+.group-head{ font-size:0.74rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color: var(--ink-faint); margin: 20px 0 10px; }
+.group-head:first-child{ margin-top:0; }
+
+.plan-card{ background: linear-gradient(155deg, var(--brand-solid) 0%, var(--brand-solid-dark) 100%); color:#fff; border-radius:20px; padding:20px; margin-bottom:20px; }
+.plan-card .eyebrow{ font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; opacity:0.75; margin-bottom:6px; }
+.plan-card h3{ font-family:var(--font-display); font-size:1.2rem; margin:0 0 8px; }
+.plan-card p{ font-size:0.82rem; opacity:0.85; line-height:1.5; margin:0 0 16px; }
+.plan-card .btn{ background:#fff; color:var(--brand-solid-dark); }
+
+.profile-card{ display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+.profile-avatar-btn{ border:none; background:none; padding:0; cursor:pointer; position:relative; flex-shrink:0; border-radius:50%; }
+.profile-avatar{ width:56px; height:56px; border-radius:50%; background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:1.3rem; flex-shrink:0; overflow:hidden; }
+.profile-avatar img{ width:100%; height:100%; object-fit:cover; }
+.avatar-edit-badge{ position:absolute; right:-2px; bottom:-2px; width:22px; height:22px; border-radius:50%; background:var(--brand-solid); color:#fff; display:flex; align-items:center; justify-content:center; font-size:0.6rem; border:2px solid var(--surface); }
+.profile-name{ font-weight:700; font-size:1.05rem; }
+.profile-email{ font-size:0.8rem; color:var(--ink-soft); }
+
+.stat-strip{ display:flex; gap:10px; margin-bottom:22px; }
+.stat-box{ flex:1; background:var(--surface-alt); border-radius:14px; padding:12px 14px; }
+.stat-box .num{ font-family:var(--font-mono); font-weight:600; font-size:1.15rem; }
+.stat-box .lbl{ font-size:0.7rem; color:var(--ink-soft); margin-top:2px; }
+
+.settings-list{ display:flex; flex-direction:column; }
+.settings-row{ display:flex; align-items:center; gap:12px; padding:14px 2px; border-bottom:1px solid var(--border-soft); background:none; border-left:none;border-right:none;border-top:none; width:100%; text-align:left; cursor:pointer; color:var(--ink); font-size:0.9rem; }
+.settings-row .icon{ color: var(--ink-soft); font-size:1.1rem; }
+.settings-row .chev{ margin-left:auto; }
+.swatch-dot{ width:12px; height:12px; border-radius:50%; display:inline-block; flex-shrink:0; }
+
+/* ---------- Plans sheet ---------- */
+.plan-options{ display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+.plan-option{ border:1.5px solid var(--border); border-radius:16px; padding:14px 16px; }
+.plan-option.current{ border-color: var(--brand); background: var(--brand-soft); }
+.plan-option-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; }
+.plan-option-head b{ font-family:var(--font-display); font-size:1rem; }
+.plan-option-head span{ font-size:0.78rem; color:var(--ink-soft); font-family:var(--font-mono); }
+.plan-option p{ font-size:0.8rem; color:var(--ink-soft); line-height:1.5; margin:0 0 12px; }
+.plan-option .btn{ width:100%; margin-bottom:0; }
+
+/* ---------- Appearance (theme) sheet ---------- */
+.theme-options{ display:flex; flex-direction:column; gap:8px; margin-bottom:18px; }
+.theme-option{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  border:1.5px solid var(--border); border-radius:14px; padding:13px 14px;
+  background: var(--surface-alt); color: var(--ink); cursor:pointer; text-align:left;
+}
+.theme-option.selected{ border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
+.theme-option-txt{ display:flex; flex-direction:column; gap:2px; font-size:0.88rem; }
+.theme-option-txt span{ font-size:0.76rem; color: var(--ink-soft); font-weight:400; }
+.theme-option.selected .theme-option-txt span{ color: inherit; opacity:0.75; }
+
+/* ---------- Color picker sheet ---------- */
+.swatch-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:14px; margin-bottom:20px; }
+.swatch-btn{ display:flex; flex-direction:column; align-items:center; gap:8px; background:none; border:none; cursor:pointer; padding:6px; }
+.swatch-circle{ width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1rem; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px transparent; transition: box-shadow .15s; }
+.swatch-btn.selected .swatch-circle{ box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink); }
+.swatch-label{ font-size:0.76rem; color:var(--ink-soft); font-weight:600; }
+
+/* .brand-mark: la marca de Memoreo (ver logoMark() en icons.js) — una
+   mancha de color en degradado turquesa con el glifo del documento encima.
+   Un solo lugar de estilo para las tres veces que aparece la marca: la
+   pantalla de bienvenida (grande), el menú lateral de escritorio (chico) y
+   la barra del panel de administrador (chico) — antes cada una tenía su
+   propio tratamiento (una hasta era una simple letra "M"), ahora es el
+   mismo logo en todas partes. */
+.brand-mark{
+  display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+  background: linear-gradient(155deg, var(--brand-solid), var(--brand-solid-dark));
+  box-shadow: 0 8px 20px -8px rgba(var(--shadow-color),0.45);
+}
+
+.welcome-wrap{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100dvh - 36px); text-align:center; padding:10px 6px; }
+.welcome-mark-wrap{ margin-bottom:22px; }
+.welcome-copy{ display:flex; flex-direction:column; align-items:center; width:100%; }
+.welcome-wrap h1{ font-family:var(--font-display); font-weight:800; font-size:2rem; letter-spacing:-0.02em; margin:0 0 10px; }
+.welcome-wrap p.tag{ color:var(--ink-soft); font-size:0.94rem; line-height:1.6; max-width:280px; margin:0 0 34px; }
+.welcome-actions{ width:100%; display:flex; flex-direction:column; gap:10px; }
+.welcome-foot{ font-size:0.72rem; color:var(--ink-faint); margin-top:22px; line-height:1.5; }
+.welcome-visual{ display:none; }
+/* Los tres puntos rápidos (ver WELCOME_HIGHLIGHTS en views.js) son un
+   agregado pensado para la versión ancha de escritorio, junto al llamado a
+   la acción — en celular la pantalla ya es corta y directa tal como está,
+   así que aquí se quedan ocultos. */
+.welcome-highlights{ display:none; }
+
+/* ---------- Auth (accounts) ---------- */
+.link-btn{ background:none; border:none; color:var(--brand); font-weight:600; font-size:0.86rem; cursor:pointer; padding:14px 6px 4px; }
+.auth-wrap{ display:flex; flex-direction:column; padding-top:6px; }
+.auth-lead{ color:var(--ink-soft); font-size:0.86rem; line-height:1.55; margin:0 0 22px; }
+.auth-error{ background:var(--critical-soft); color:var(--critical); font-size:0.84rem; font-weight:600; padding:12px 14px; border-radius:12px; margin:-4px 0 16px; }
+.auth-switch{ text-align:center; font-size:0.84rem; color:var(--ink-soft); margin:18px 0 0; }
+.link-inline{ background:none; border:none; color:var(--brand); font-weight:700; font-size:0.84rem; cursor:pointer; padding:0; }
+.field input[type="email"], .field input[type="password"], .field input[type="number"]{
+  width:100%; padding:13px 14px; border-radius:12px; border:1.5px solid var(--border);
+  background: var(--surface-alt); color: var(--ink); font-size:16px;
+}
+.field input[type="email"]:focus, .field input[type="password"]:focus, .field input[type="number"]:focus{ border-color: var(--brand); background: var(--surface); }
+
+/* Botón de mostrar/ocultar contraseña: flota dentro del mismo campo, a la
+   derecha, en vez de ocupar su propia fila — para que se note que es una
+   acción sobre ESE campo y no un control aparte. */
+.password-field{ position:relative; }
+.password-field input[type="password"], .password-field input[type="text"]{ padding-right:46px; }
+.password-toggle{
+  position:absolute; right:4px; top:50%; transform:translateY(-50%);
+  width:36px; height:36px; border-radius:10px; border:none; background:none;
+  color: var(--ink-faint); display:flex; align-items:center; justify-content:center;
+  font-size:1.1rem; cursor:pointer;
+}
+.password-toggle:hover{ color: var(--ink-soft); }
+.password-toggle[aria-pressed="true"]{ color: var(--brand); }
+
+/* ==========================================================
+   Ancho de escritorio — mismo HTML, mismo estado, solo reacomodado. Con
+   mouse (no dedo) el menú vuelve a ser la barra fija de siempre arriba de
+   todo (.header-bar) en vez de la que cada pantalla trae metida en su
+   propio contenido (.tabbar-inline, pensada para celular) — ver el
+   comentario junto a .tabbar-inline más arriba. Lo demás del contenido
+   también se ensancha y se centra en vez de quedarse en el ancho angosto
+   de "tarjeta de celular".
+   ========================================================== */
+@media (min-width: 640px){
+  #app{ min-height:100vh; }
+  .app{
+    max-width:none;
+    height:100dvh;
+    min-height:0;
+    box-shadow:none;
+  }
+
+  .screen{
+    /* .screen es un flex item dentro de .app (display:flex) — sin este
+       width:100% explícito, el margin:0 auto de abajo hace que un flex item
+       deje de estirarse (el "stretch" de siempre) y en cambio se encoja
+       nada más a lo que su contenido pide, centrado por esos márgenes
+       automáticos. Eso dejaba a .screen mucho más angosto que la ventana
+       real disponible — la causa de fondo de que la ilustración de
+       bienvenida nunca tuviera el espacio que su propio max-width le
+       debería dar, sin importar cuánto se le achicaran las tarjetas. */
+    width:100%;
+    max-width:960px;
+    margin:0 auto;
+    padding:44px 56px 64px;
+  }
+
+  /* La de adentro de cada pantalla es solo para celular — en escritorio
+     manda la barra fija de arriba (.header-bar, ver arriba), así que este
+     bloque deja de fijarse a ningún lado y vuelve a ser contenido normal
+     dentro de .screen. */
+  .screen-sticky-head{ position:static; margin:0; padding:0; background:none; border-bottom:none; }
+  .tabbar-inline{ display:none; }
+
+  .tab:hover{ background:var(--surface-alt); }
+
+  /* El acomodo de "buscador arriba, menú debajo" es un ajuste pensado para
+     pantalla táctil angosta — en escritorio el mouse llega perfecto al
+     botón "Buscar" de la barra de siempre, así que la fila extra de
+     búsqueda no hace falta (y dejarla habría sido una segunda forma de
+     llegar a lo mismo, ocupando espacio sin necesidad). */
+  .header-search{ display:none; }
+  .header-bar{ padding-top:0; }
+
+  .cat-grid{ grid-template-columns: repeat(4,1fr); }
+  .urgent-row{ flex-wrap:wrap; overflow-x:visible; scroll-snap-type:none; }
+  .urgent-card{ width: calc(25% - 9px); }
+
+  .sheet-backdrop{ align-items:center; }
+  .sheet{ max-width:440px; border-radius:22px; box-shadow: 0 30px 70px -20px rgba(var(--shadow-color),0.4); }
+
+  .auth-wrap{ max-width:380px; margin:0 auto; }
+
+  /* Bienvenida en escritorio: deja de ser la pantalla del celular centrada
+     en una columna angosta — pasa a un layout propio de dos columnas
+     (texto + una ilustración de la app), como cualquier landing real, y el
+     .screen que la envuelve se ensancha solo para esta pantalla (ver
+     :has() más abajo) en vez de quedarse en los 760px que usa el resto de
+     la app. Además, .app entero (no solo .screen) pinta un degradado suave
+     de lado a lado — antes el fondo se quedaba liso y toda la pantalla se
+     sentía "una tarjeta angosta flotando en el vacío" en monitores anchos;
+     ahora el color sí llega hasta los bordes reales de la ventana aunque el
+     contenido en sí siga en una columna legible en el centro. */
+  .app:has(.welcome-wrap){
+    background:
+      radial-gradient(1100px 640px at 10% -10%, var(--brand-soft), transparent 58%),
+      radial-gradient(900px 720px at 106% 22%, var(--accent-soft), transparent 55%),
+      radial-gradient(760px 560px at 22% 122%, var(--brand-soft), transparent 52%),
+      var(--surface);
+  }
+  .screen:has(.welcome-wrap){ max-width:1080px; padding:0 40px; }
+  .welcome-wrap{
+    flex-direction:row; align-items:center; justify-content:center; gap:72px;
+    min-height:100dvh; text-align:left; padding:0;
+  }
+  .welcome-copy{ align-items:flex-start; flex:1 1 420px; max-width:440px; }
+  .welcome-mark-wrap{ margin-bottom:30px; }
+  .welcome-mark-wrap .brand-mark{ transform: scale(1.2); transform-origin: left center; }
+  .welcome-wrap h1{ font-size:3.2rem; text-wrap:balance; }
+  .welcome-wrap p.tag{ max-width:400px; font-size:1.08rem; }
+  .welcome-actions{ flex-direction:row; max-width:400px; gap:12px; }
+  .welcome-actions .btn{ flex:1 1 auto; padding:16px 20px; font-size:0.98rem; }
+  .welcome-actions .btn-primary{ box-shadow: 0 18px 34px -14px rgba(14,165,166,0.5); }
+  .welcome-foot{ text-align:left; }
+
+  /* Tres funciones reales de la app junto al llamado a la acción (ver
+     WELCOME_HIGHLIGHTS en views.js) — le dan al botón "Crear cuenta" una
+     razón concreta, no solo una promesa vacía. */
+  .welcome-highlights{
+    display:flex; flex-direction:column; gap:13px;
+    margin: 26px 0 24px; padding-top:22px; border-top:1px solid var(--border-soft);
+    width:100%; max-width:400px;
+  }
+  .wh-item{ display:flex; align-items:center; gap:12px; font-size:0.86rem; color:var(--ink-soft); font-weight:600; }
+  .wh-item .wh-ic{
+    width:34px; height:34px; border-radius:10px; flex-shrink:0;
+    background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; font-size:1rem;
+  }
+
+  .welcome-visual{
+    display:flex; align-items:center; justify-content:center;
+    flex:1 1 420px; max-width:440px; height:440px; position:relative;
+    /* Sin esto, un flex item no se encoge más allá del ancho de su
+       contenido (las tarjetas de abajo, position:absolute pero todavía
+       cuentan) — en ventanas angostas eso empujaba .welcome-wrap más
+       ancho que la pantalla y aparecía una barra de scroll horizontal. */
+    min-width:0;
+  }
+  .wv-panel{
+    position:relative; width:100%; height:100%; border-radius:32px;
+    /* overflow:hidden de respaldo — con .wv-card ahora usando un ancho
+       fluido (min() más abajo) esto ya no debería activarse nunca en la
+       práctica, pero se deja como red de seguridad. */
+    overflow:hidden;
+    background:
+      radial-gradient(340px 240px at 18% 14%, var(--brand-soft), transparent 60%),
+      radial-gradient(300px 220px at 85% 82%, var(--accent-soft), transparent 55%),
+      var(--surface-alt);
+    border:1px solid var(--border-soft);
+    box-shadow: 0 40px 90px -30px rgba(var(--shadow-color),0.28);
+  }
+  .wv-card{
+    position:absolute; display:flex; align-items:center; gap:12px;
+    /* Antes era un ancho fijo (250px) que, en un panel angosto, o se salía
+       del borde (scroll horizontal) o quedaba recortado a la mitad de una
+       palabra (con overflow:hidden) — ninguna de las dos se veía bien.
+       Con min() la tarjeta nunca pide más del 62% del panel que la
+       contiene, así que .wv-name (abajo, con su propio ellipsis) es quien
+       se encarga de recortar limpio con "…" en vez de partir el texto a la
+       mitad, y ni siquiera hace falta que eso pase en un panel de buen
+       tamaño como el de escritorio. */
+    width:min(250px, 62%); padding:14px 16px; border-radius:16px;
+    background:var(--surface); border:1px solid var(--border);
+    box-shadow: 0 20px 40px -18px rgba(var(--shadow-color),0.35);
+  }
+  .wv-card .wv-ic{
+    width:38px; height:38px; border-radius:11px; flex-shrink:0;
+    background:var(--cc-soft); color:var(--cc); display:flex; align-items:center; justify-content:center; font-size:1.15rem;
+  }
+  .wv-card .wv-txt{ min-width:0; }
+  .wv-card .wv-name{ font-weight:700; font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .wv-card .wv-when{ margin-top:2px; }
+  .wv-card-1{ top:4%; left:2%; transform:rotate(-4deg); }
+  .wv-card-2{ top:32%; right:0%; transform:rotate(3deg); z-index:2; }
+  .wv-card-3{ bottom:20%; left:6%; transform:rotate(-2deg); }
+  .wv-card-4{ bottom:2%; right:8%; transform:rotate(2deg); }
+  @media (prefers-reduced-motion: no-preference){
+    .wv-card{ animation: wv-float 6s ease-in-out infinite; }
+    .wv-card-2{ animation-delay:-1.5s; }
+    .wv-card-3{ animation-delay:-3s; }
+    .wv-card-4{ animation-delay:-4.5s; }
+  }
+  @keyframes wv-float{ 0%,100%{ transform-origin:center; margin-top:0; } 50%{ margin-top:-10px; } }
+
+  .doc-card:hover, .urgent-card:hover, .cat-tile:hover, .settings-row:hover{ border-color: var(--brand); }
+  .btn:hover{ filter:brightness(1.04); }
+}
+
+/* ==========================================================
+   Wide desktop — laptops/monitors with real room to spare.
+   960px of centered content still leaves a lot of empty margin
+   on a 1440–1920px screen, so from here the content column
+   widens further and the document list itself becomes two
+   columns instead of one long, mostly-empty row.
+   ========================================================== */
+@media (min-width: 1280px){
+  .screen{ max-width:1160px; padding:48px 64px 72px; }
+  .cat-grid{ grid-template-columns: repeat(5,1fr); }
+  .urgent-card{ width: calc(20% - 10px); }
+  .doc-list{ display:grid; grid-template-columns: repeat(2,1fr); gap:10px 14px; }
+
+  /* Bienvenida en monitores grandes: el mismo layout de dos columnas de
+     640px, pero con más espacio real que aprovechar — texto, ilustración y
+     separación entre ambos crecen con la pantalla en vez de quedarse del
+     mismo tamaño y dejar todo ese margen extra sin usar. */
+  .screen:has(.welcome-wrap){ max-width:1360px; padding:0 64px; }
+  .welcome-wrap{ gap:104px; }
+  .welcome-copy{ max-width:500px; }
+  .welcome-wrap h1{ font-size:3.9rem; }
+  .welcome-wrap p.tag{ max-width:460px; font-size:1.18rem; }
+  .welcome-visual{ max-width:560px; height:560px; }
+}
