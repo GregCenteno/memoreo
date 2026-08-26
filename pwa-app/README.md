@@ -184,9 +184,9 @@ deja ese camino trazado.
   como texto y no como un dato técnico.
 - **Categoría Salud, funcional** (antes era un candado fijo — ver el punto 4 de
   "Siguiente paso: backend real" en la versión anterior de este README, ya
-  resuelto): tres subcategorías — Vacunas, Medicamentos y Pruebas de
-  laboratorio —, cada una con sus propios campos y su propia forma de medir
-  urgencia:
+  resuelto): cuatro subcategorías — Vacunas, Medicamentos, Pruebas de
+  laboratorio y Recetas —, cada una con sus propios campos y su propia forma
+  de medir urgencia:
   - **Vacunas**: fecha de aplicación opcional y próxima dosis — la etiqueta de
     urgencia dice "Próxima dosis en X días" (no "Vence en X días": una vacuna
     no vence, lo que se acerca es la siguiente dosis).
@@ -201,6 +201,10 @@ deja ese camino trazado.
     recordatorio, reutilizando el mismo campo y la misma maquinaria de
     notificaciones que ya usan las demás fechas de la app — ver `healthInfo`
     en `src/utils.js`).
+  - **Recetas**: foto o PDF de la receta médica (usando el mismo adjunto de
+    Supabase Storage que cualquier otro documento), con fecha de expedición y
+    de vencimiento/renovación opcionales — la etiqueta usa el mismo
+    "Vence en X días" que un documento normal. Exclusiva de Premium Plus.
 
   Qué subcategorías están disponibles depende del plan (ver siguiente punto) —
   todo plan, incluido el Gratis, tiene acceso **sin límite de cantidad** a las
@@ -215,10 +219,11 @@ deja ese camino trazado.
   - **Premium**: hasta 20 elementos + agrega Medicamentos y Pruebas de
     laboratorio sin límite. **Incluye 7 días de prueba gratis** la primera
     vez que se elige.
-  - **Premium Plus**: elementos ilimitados + dentro de Pruebas de laboratorio
-    agrega próxima cita médica, y además desbloquea la personalización de
-    color de la app (ver siguiente punto) — es el único plan con acceso a
-    color de acento. Sin período de prueba: se cobra de inmediato.
+  - **Premium Plus**: elementos ilimitados + agrega Recetas sin límite +
+    dentro de Pruebas de laboratorio agrega próxima cita médica, y además
+    desbloquea la personalización de color de la app (ver siguiente punto) —
+    es el único plan con acceso a color de acento. Sin período de prueba: se
+    cobra de inmediato.
 
   Elegir cualquier plan de paga saca de la app hacia Stripe Checkout, y
   **el plan solo se activa cuando el navegador vuelve y el propio backend
