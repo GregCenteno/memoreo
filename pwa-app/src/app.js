@@ -1,6 +1,6 @@
 import {
   store, catInfo, docInfo, formMode, docNoun, openStoreForAccount, clearStore, initAccountDocs,
-  planInfo, nonHealthCount, healthTypeAllowed, healthTypeInfo, planForHealthType, accentInfo, colorPersonalizationAllowed
+  planInfo, nonHealthCount, healthTypeAllowed, healthTypeInfo, accentInfo, colorPersonalizationAllowed
 } from './store.js';
 import { addDays, fromInputDate, fmtDate } from './utils.js';
 import { icon, logoMark } from './icons.js';
@@ -903,11 +903,7 @@ async function saveDraft() {
     recurrence: mode === 'pago' ? d.recurrence : null,
     direction: mode === 'prestamo' ? d.direction : null,
     person: mode === 'prestamo' ? d.person.trim() : null,
-    // Préstamos exige el monto (ver validateAddForm, más abajo); en Servicios
-    // (luz, internet…) y Mantenimiento (Vehículo/Hogar) es opcional — de ahí
-    // el `d.amount ? ... : null` extra, para no guardar 0 cuando se deja en
-    // blanco.
-    amount: mode === 'prestamo' ? Number(d.amount) : (['pago', 'activity'].includes(mode) && d.amount ? Number(d.amount) : null),
+    amount: mode === 'prestamo' ? Number(d.amount) : null,
     notes: d.notes,
     healthType: mode === 'salud' ? d.healthType : null,
     dose: mode === 'salud' && d.healthType === 'medicamento' ? d.dose : null,
@@ -1045,12 +1041,9 @@ function joinEs(list) {
 function openHealthUpsell(healthType) {
   const h = healthTypeInfo(healthType);
   const currentPlan = planInfo((state.account && state.account.plan) || 'gratis');
-  // Vacunas es lo único que ya incluye el plan Gratis; Medicamentos y
-  // Pruebas de laboratorio se desbloquean en Premium; Recetas es exclusiva
-  // de Premium Plus — planForHealthType() busca cuál de los tres es el
-  // correcto para CADA subcategoría en vez de asumir siempre Premium, que
-  // antes de que existiera Recetas sí alcanzaba con eso.
-  const neededPlan = planForHealthType(healthType);
+  // Vacunas es lo único que ya incluye el plan Gratis; todo lo demás en
+  // Salud (Medicamentos, Pruebas de laboratorio) se desbloquea en Premium.
+  const neededPlan = planInfo('premium');
   const included = joinEs(currentPlan.salud.map((id) => healthTypeInfo(id).label));
   openSheet(`
     <div class="sheet-handle"></div>

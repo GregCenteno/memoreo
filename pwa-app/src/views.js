@@ -82,10 +82,7 @@ function metaLabel(doc) {
 export function docCard(doc) {
   const info = docInfo(doc);
   let meta = `${esc(metaLabel(doc))} · ${esc(info.label)}`;
-  // Préstamos siempre trae monto (es obligatorio ahí); Servicios y
-  // Mantenimiento (Vehículo/Hogar) lo traen solo si la persona lo puso, ya
-  // que ahí el campo es opcional.
-  if ((doc.category === 'prestamos' || doc.category === 'pagos' || isActivity(doc)) && doc.amount) {
+  if (doc.category === 'prestamos' && doc.amount) {
     meta = `${esc(metaLabel(doc))} · ${formatMoney(doc.amount)} · ${esc(info.label)}`;
   }
   const dot = `<span class="urg-dot ${urgencyClass(info)}"></span>`;
@@ -393,7 +390,7 @@ export function profileView(docs, account, themePref) {
       <div style="display:flex;gap:10px;"><button class="btn" data-action="open-plans">Ver planes</button><button class="btn btn-ghost" data-action="cancel-trial">${esc(cancelLabel)}</button></div></div>`;
   } else if (plan.id === 'premium_plus') {
     html += `<div class="plan-card"><div class="eyebrow">${esc(plan.label)}</div><h3>Ya tienes todo desbloqueado</h3>
-      <p>Elementos ilimitados, Recetas médicas, Pruebas de laboratorio con próxima cita médica, y color de la app personalizado.</p>
+      <p>Elementos ilimitados, Pruebas de laboratorio con próxima cita médica, y color de la app personalizado.</p>
       <button class="btn" data-action="open-plans">Ver planes</button></div>`;
   } else {
     const nextPlan = plan.id === 'gratis' ? PLANS_ORDER_LABEL.premium : PLANS_ORDER_LABEL.premium_plus;
@@ -401,7 +398,7 @@ export function profileView(docs, account, themePref) {
       ? (account && account.trialUsed
         ? 'Más elementos guardados y el módulo de salud un poco más completo (agrega Medicamentos y Pruebas de laboratorio).'
         : 'Más elementos guardados y el módulo de salud un poco más completo — con 7 días gratis para probarlo.')
-      : 'Elementos ilimitados, Recetas médicas, próxima cita médica en Pruebas de laboratorio y color de la app personalizado.';
+      : 'Elementos ilimitados, próxima cita médica en Pruebas de laboratorio y color de la app personalizado.';
     html += `<div class="plan-card"><div class="eyebrow">${esc(plan.label)}</div><h3>Desbloquea ${esc(nextPlan)}</h3>
       <p>${desc}</p>
       <button class="btn" data-action="open-plans">Ver planes</button></div>`;
@@ -575,7 +572,6 @@ function reminderLabel(mode, healthType) {
   if (mode === 'prestamo') return 'Recordarme de este préstamo';
   if (mode === 'salud' && healthType === 'medicamento') return 'Recordarme antes de que se agote';
   if (mode === 'salud' && healthType === 'laboratorio') return 'Recordarme antes de la cita';
-  if (mode === 'salud' && healthType === 'receta') return 'Recordarme antes de que venza la receta';
   return 'Recordarme antes de que venza';
 }
 
@@ -590,8 +586,7 @@ function reminderBlock(draft, mode) {
 const HEALTH_NAME_PLACEHOLDERS = {
   vacuna: 'Ej. Refuerzo COVID-19, Influenza',
   medicamento: 'Ej. Losartán, Metformina',
-  laboratorio: 'Ej. Control anual, Chequeo de rutina',
-  receta: 'Ej. Receta de amoxicilina, receta oftalmológica'
+  laboratorio: 'Ej. Control anual, Chequeo de rutina'
 };
 
 export function addView({ draft, editing, plan }) {
@@ -652,11 +647,6 @@ export function addView({ draft, editing, plan }) {
         html += `<div class="plan-nudge"><span>${icon('lock')}</span><div><b>Premium Plus agrega más aquí.</b> Agrega tu próxima cita médica y recibe un recordatorio antes de que llegue.</div>
           <button class="link" data-action="open-plans">Ver planes</button></div>`;
       }
-    } else if (draft.healthType === 'receta') {
-      html += `<div class="field"><label for="fPerformed">¿Cuándo se expidió? (opcional)</label><input type="date" id="fPerformed" value="${draft.performedAt ? toInputDate(draft.performedAt) : ''}" /></div>`;
-      html += `<div class="field"><label for="fDate">Vence o se debe renovar (opcional)</label><input type="date" id="fDate" value="${draft.expiresAt ? toInputDate(draft.expiresAt) : ''}" /></div>
-        <p class="preset-hint">Adjunta la foto o el PDF de la receta médica arriba — con fecha o sin ella, Memoreo la guarda igual.</p>`;
-      html += reminderBlock(draft, mode);
     } else {
       html += `<div class="field"><label for="fPerformed">¿Cuándo te la aplicaste? (opcional)</label><input type="date" id="fPerformed" value="${draft.performedAt ? toInputDate(draft.performedAt) : ''}" /></div>`;
       html += `<div class="field"><label for="fDate">Próxima dosis (opcional)</label><input type="date" id="fDate" value="${draft.expiresAt ? toInputDate(draft.expiresAt) : ''}" /></div>`;
@@ -667,8 +657,7 @@ export function addView({ draft, editing, plan }) {
       .map((r) => `<button type="button" class="chip ${draft.recurrence === r ? 'selected' : ''}" data-set-recurrence="${r}">${RECURRENCE_LABELS[r]}</button>`)
       .join('')}</div></div>`;
     html += `<div class="field"><label for="fDate">Próxima fecha de pago</label><input type="date" id="fDate" value="${draft.expiresAt ? toInputDate(draft.expiresAt) : ''}" /></div>
-      <p class="preset-hint">Con cualquier fecha de pago que conozcas, Memoreo calcula sola la siguiente cada vez que pase — un solo registro de "Luz" o "Internet" es suficiente, nunca hay que volver a registrarlo cada bimestre o cada mes.</p>`;
-    html += `<div class="field"><label for="fAmount">Monto (opcional)</label><input type="number" inputmode="decimal" min="0" step="0.01" id="fAmount" placeholder="0.00" value="${esc(draft.amount)}" /></div>`;
+      <p class="preset-hint">Con cualquier fecha de pago que conozcas, Memoreo calcula sola la siguiente cada vez que pase.</p>`;
     html += reminderBlock(draft, mode);
   } else if (mode === 'prestamo') {
     html += `<div class="field"><label>Tipo</label><div class="chip-row" id="directionChips">
@@ -685,7 +674,6 @@ export function addView({ draft, editing, plan }) {
     html += reminderBlock(draft, mode);
   } else if (mode === 'activity') {
     html += `<div class="field"><label for="fPerformed">¿Cuándo lo hiciste?</label><input type="date" id="fPerformed" value="${draft.performedAt ? toInputDate(draft.performedAt) : toInputDate(new Date())}" /></div>`;
-    html += `<div class="field"><label for="fAmount">Monto (opcional)</label><input type="number" inputmode="decimal" min="0" step="0.01" id="fAmount" placeholder="0.00" value="${esc(draft.amount)}" /></div>`;
     const nextPresets = [{ l: '3 meses', v: 91 }, { l: '6 meses', v: 182 }, { l: '1 año', v: 365 }];
     html += `<div class="field" style="margin-top:18px;"><div class="toggle-row"><span class="t">${reminderLabel(mode)}</span><div class="switch ${draft.reminderOn ? 'on' : ''}" id="reminderSwitch"></div></div></div>`;
     html += `<div id="reminderDaysWrap" style="display:${draft.reminderOn ? 'block' : 'none'};margin-top:10px;">
@@ -748,7 +736,6 @@ export function detailView(doc, { plan } = {}) {
   if (isPago) {
     html += `<div class="info-row"><span class="k">Frecuencia</span><span class="v wrap">${esc(RECURRENCE_LABELS[doc.recurrence] || '—')}</span></div>
     <div class="info-row"><span class="k">Próximo pago</span><span class="v">${info.nextDate ? fmtDate(info.nextDate) : 'Sin fecha'}</span></div>
-    ${doc.amount ? `<div class="info-row"><span class="k">Monto</span><span class="v">${formatMoney(doc.amount)}</span></div>` : ''}
     <div class="info-row"><span class="k">Recordatorio</span><span class="v wrap">${doc.reminderDays ? `${doc.reminderDays} día${doc.reminderDays === 1 ? '' : 's'} antes` : 'Desactivado'}</span></div>`;
   } else if (isPrestamo) {
     html += `<div class="info-row"><span class="k">Persona</span><span class="v wrap">${esc(doc.person || '—')}</span></div>
@@ -765,18 +752,13 @@ export function detailView(doc, { plan } = {}) {
     } else if (doc.healthType === 'laboratorio') {
       html += `<div class="info-row"><span class="k">Fecha de la prueba</span><span class="v">${doc.performedAt ? fmtDate(doc.performedAt) : 'Sin registrar'}</span></div>
       <div class="info-row"><span class="k">Próxima cita médica</span><span class="v">${doc.expiresAt ? fmtDate(doc.expiresAt) : 'Sin fecha'}</span></div>`;
-    } else if (doc.healthType === 'receta') {
-      html += `<div class="info-row"><span class="k">Expedida</span><span class="v">${doc.performedAt ? fmtDate(doc.performedAt) : 'Sin registrar'}</span></div>
-      <div class="info-row"><span class="k">Vence</span><span class="v">${doc.expiresAt ? fmtDate(doc.expiresAt) : 'No vence'}</span></div>
-      <div class="info-row"><span class="k">Recordatorio</span><span class="v wrap">${doc.reminderDays ? `${doc.reminderDays} días antes` : 'Desactivado'}</span></div>`;
     } else {
       html += `<div class="info-row"><span class="k">Aplicada</span><span class="v">${doc.performedAt ? fmtDate(doc.performedAt) : 'Sin registrar'}</span></div>
       <div class="info-row"><span class="k">Próxima dosis</span><span class="v">${doc.expiresAt ? fmtDate(doc.expiresAt) : 'Sin fecha'}</span></div>`;
     }
   } else if (activity) {
     html += `<div class="info-row"><span class="k">Realizado</span><span class="v">${doc.performedAt ? fmtDate(doc.performedAt) : 'Sin registrar'}</span></div>
-    <div class="info-row"><span class="k">Próxima vez</span><span class="v">${doc.expiresAt ? fmtDate(doc.expiresAt) : 'No programada'}</span></div>
-    ${doc.amount ? `<div class="info-row"><span class="k">Monto</span><span class="v">${formatMoney(doc.amount)}</span></div>` : ''}`;
+    <div class="info-row"><span class="k">Próxima vez</span><span class="v">${doc.expiresAt ? fmtDate(doc.expiresAt) : 'No programada'}</span></div>`;
     if (doc.expiresAt) {
       html += `<div class="info-row"><span class="k">Recordatorio</span><span class="v wrap">${doc.reminderDays ? `${doc.reminderDays} días antes` : 'Desactivado'}</span></div>`;
     }
