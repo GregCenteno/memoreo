@@ -262,11 +262,13 @@ deja ese camino trazado.
 
   Elegir Premium o Premium Plus **no cobra nada en el momento**: abre una
   hoja para *solicitar* el plan — cuántos meses pagar (1 a 6, o 1 año) y si
-  se prefiere transferencia bancaria (México) o PayPal — y pide un número de
-  celular para contactar. Esa solicitud llega al panel de administrador (ver
-  **"Cómo funciona el pago manual"** más abajo); el administrador contacta a
-  esa persona con los datos bancarios o la liga de PayPal por fuera de la
-  app y, en cuanto confirma que ya se pagó, activa la solicitud desde su
+  se prefiere transferencia bancaria (México) o PayPal — y termina en un
+  botón **"Pagar vía WhatsApp"** que abre una conversación de WhatsApp con
+  el negocio (ya no se pide número de celular: es la persona quien inicia
+  esa conversación). Esa solicitud llega al panel de administrador (ver
+  **"Cómo funciona el pago manual"** más abajo); el administrador le manda
+  a esa persona, ya en WhatsApp, los datos bancarios o la liga de PayPal
+  y, en cuanto confirma que ya se pagó, activa la solicitud desde su
   panel — eso es lo único que de verdad sube el plan, y le pone fecha de
   vencimiento según los meses pagados. Intentar guardar un elemento fuera
   del límite del plan, abrir una subcategoría de Salud aún bloqueada, o ver
@@ -368,32 +370,30 @@ por fuera de la app. El flujo completo:
 
 1. **Solicitar** (`paymentRequestSheet` en `src/views.js`, abierta desde
    `openPaymentRequest` en `src/app.js` al elegir Premium o Premium Plus en
-   la hoja de planes): la persona elige cuántos meses quiere pagar (1 a 6, o
-   1 año = 12), si prefiere transferencia o PayPal, y deja un número de
-   celular. Al enviar, `requestManualPayment` (`src/auth.js`) inserta un
-   renglón en `public.payment_requests` con `status: 'pendiente'` — una
-   policy de RLS ("insert own") deja que cualquiera inserte la suya, nada
-   más; nadie puede activarse un plan escribiendo directo en la base de
-   datos. **El plan no cambia en este paso.**
-   - Esta misma hoja también trae un botón **"Pagar vía WhatsApp"**,
-     disponible desde que se abre (no hace falta elegir duración ni método
-     primero) — abre una conversación de WhatsApp directo con el número del
-     negocio, con un mensaje ya escrito diciendo qué plan quiere contratar
-     (y, si ya eligió duración/método en esta misma hoja, los incluye
-     también — ver `updateWhatsappLink` en `openPaymentRequest`,
-     `src/app.js`). Es un camino más directo, en paralelo al de
-     "Enviar solicitud": no reemplaza el flujo de arriba, ni inserta nada en
-     `payment_requests` por sí solo — es la persona quien, ya en WhatsApp,
-     decide si también deja la solicitud formal. Se configura con la
-     variable de entorno `VITE_WHATSAPP_NUMBER` (formato internacional,
-     solo dígitos — ver `pwa-app/.env.example`); sin ella, el botón
-     simplemente no aparece (ver `WHATSAPP_NUMBER` en `src/store.js`).
-2. **Contactar y cobrar**, por fuera de la app: quien administra el sitio ve
-   la solicitud en su panel (sección "Solicitudes de pago", ver **"Cómo
-   funciona el panel de administrador"**) con el nombre, correo y celular de
-   quien la pidió, y le manda los datos de la cuenta bancaria o la liga de
-   PayPal para pagar, por el medio que prefiera (WhatsApp, llamada, correo —
-   Memoreo no automatiza esta parte).
+   la hoja de planes): la persona elige, en orden, cuántos meses quiere
+   pagar (1 a 6, o 1 año = 12) y si prefiere transferencia o PayPal — el
+   total a pagar se calcula solo — y al final toca el único botón de la
+   hoja, **"Pagar vía WhatsApp"** (deshabilitado hasta elegir ambas cosas).
+   Ya no se pide número de celular: es la persona quien inicia la
+   conversación, así que no hace falta que Memoreo la contacte. Tocar el
+   botón hace dos cosas a la vez: abre una conversación de WhatsApp con el
+   número del negocio, con un mensaje ya escrito con el plan, los meses y
+   el método elegidos (ver `whatsappPayMessage` en `src/store.js`), y en
+   paralelo `requestManualPayment` (`src/auth.js`) inserta un renglón en
+   `public.payment_requests` con `status: 'pendiente'` — una policy de RLS
+   ("insert own") deja que cualquiera inserte la suya, nada más; nadie
+   puede activarse un plan escribiendo directo en la base de datos. **El
+   plan no cambia en este paso.** El botón se configura con la variable de
+   entorno `VITE_WHATSAPP_NUMBER` (formato internacional, solo dígitos —
+   ver `pwa-app/.env.example`); sin ella, la hoja avisa que todavía no está
+   listo en vez de mostrar el botón (ver `WHATSAPP_NUMBER` en
+   `src/store.js`).
+2. **Contactar y cobrar**, por fuera de la app: la persona escribe por
+   WhatsApp, y quien administra el sitio ve la misma solicitud en su panel
+   (sección "Solicitudes de pago", ver **"Cómo funciona el panel de
+   administrador"**) con el nombre, correo y plan pedido — le manda ahí
+   mismo, en WhatsApp, los datos de la cuenta bancaria o la liga de PayPal
+   para pagar (Memoreo no automatiza esta parte).
 3. **Activar**, una vez confirmado el pago: el administrador toca "Activar"
    en su panel, lo que abre una hoja (`adminActivateSheet` en
    `src/views.js`) donde elige cuántos meses activar — viene preseleccionada
@@ -654,8 +654,10 @@ que decide si esa cuenta ve la pantalla de "Tu suscripción venció" (ver
 **Solicitudes de pago:** debajo de la tabla de usuarios hay una segunda
 sección, "Solicitudes de pago" — lo que llega cada vez que alguien pide
 Premium o Premium Plus por transferencia bancaria o PayPal (ver **"Cómo
-funciona el pago manual"** más arriba). Cada renglón trae el celular para
-contactar, cuántos meses y con qué método; las que siguen "Pendiente"
+funciona el pago manual"** más arriba). Cada renglón trae cuántos meses y
+con qué método (el celular ya no se pide — se contacta por WhatsApp; si
+una solicitud vieja de antes de este cambio sí trae celular, se muestra
+igual); las que siguen "Pendiente"
 tienen botones **Activar** (abre una hoja para elegir cuántos meses activar
 — preseleccionada en los meses pedidos, pero se puede cambiar — y sube el
 plan de esa cuenta con esa duración, solo después de confirmar que el pago
@@ -755,10 +757,11 @@ esta sección explica cada paso):
 - [ ] `ADMIN_USERNAME` y `ADMIN_PASSWORD` elegidas y configuradas — son las
       credenciales para entrar al panel desde el mismo "Iniciar sesión"
       (ver **"Cómo funciona el panel de administrador"**).
-- [ ] `VITE_WHATSAPP_NUMBER` configurada con tu número real, si quieres el
-      botón "Pagar vía WhatsApp" en la hoja de solicitar un plan (ver
-      **"Cómo funciona el pago manual"**) — opcional: sin ella el botón
-      simplemente no aparece, el resto del flujo de pago sigue igual.
+- [ ] `VITE_WHATSAPP_NUMBER` configurada con tu número real — el botón
+      "Pagar vía WhatsApp" en la hoja de solicitar un plan (ver **"Cómo
+      funciona el pago manual"**) es el único paso para completar una
+      solicitud, así que sin esta variable la hoja avisa que el pago
+      todavía no está listo en vez de mostrar el botón.
 - [ ] Volviste a desplegar (**Deploys → Trigger deploy**) después de
       agregar o cambiar variables de entorno — no se aplican solas a un
       deploy ya hecho.
@@ -816,9 +819,9 @@ management → Add a domain**).
    `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
    `STRIPE_PRICE_PREMIUM`, `STRIPE_PRICE_PREMIUM_PLUS`,
    `ADMIN_USERNAME`, `ADMIN_PASSWORD` (ver **"Cómo funciona el panel de
-   administrador"** más arriba) y, si quieres el botón "Pagar vía
-   WhatsApp", `VITE_WHATSAPP_NUMBER` (ver **"Cómo funciona el pago
-   manual"**).
+   administrador"** más arriba) y `VITE_WHATSAPP_NUMBER`, tu número real,
+   para que funcione el botón "Pagar vía WhatsApp" con el que se completa
+   una solicitud de pago (ver **"Cómo funciona el pago manual"**).
 2. Vuelve a desplegar (**Deploys → Trigger deploy**) para que las funciones
    tomen las variables nuevas — no se aplican solas a un deploy ya hecho.
 3. En el dashboard de Stripe, **Developers → Webhooks → Add endpoint**, usa
@@ -861,12 +864,15 @@ es cosa de un clic si se necesita más adelante, sin tocar código).
    sin `payment_requests`, sus columnas de "Revertir" o
    `profiles.plan_expires_at`, correr el archivo de nuevo los agrega solos.
    **Si ya tenías un proyecto de Supabase de una versión anterior de
-   Memoreo (antes de que Hogar tuviera Documentos/Servicios/Mantenimiento),
-   sí hace falta volver a correr `schema.sql` esta vez**: además de agregar
+   Memoreo (antes de que Hogar tuviera Documentos/Servicios/Mantenimiento,
+   o antes de que se quitara el celular de la solicitud de pago), sí hace
+   falta volver a correr `schema.sql` esta vez**: además de agregar
    columnas que falten, ensancha una restricción (`documents_kind_check`)
    que antes solo aceptaba `kind` en `'doc'`/`'activity'` — sin eso, guardar
-   un Documento o Servicio nuevo de Hogar fallaría. Los documentos ya
-   guardados no se tocan ni se pierden.
+   un Documento o Servicio nuevo de Hogar fallaría —, y afloja
+   `payment_requests.phone` (antes obligatoria, ahora opcional) — sin eso,
+   una solicitud de pago nueva (que ya no manda celular) fallaría también.
+   Los documentos y solicitudes ya guardados no se tocan ni se pierden.
 3. En **Project Settings → API**, copia:
    - **Project URL** → es el valor de `VITE_SUPABASE_URL` y `SUPABASE_URL`
      (el mismo valor, en dos variables distintas).
@@ -906,8 +912,10 @@ es cosa de un clic si se necesita más adelante, sin tocar código).
   documentos de otra.
 - **`public.payment_requests`** — un renglón por solicitud de pago manual
   (transferencia bancaria o PayPal, ver **"Cómo funciona el pago
-  manual"**): plan, meses, método, celular y estado
-  (`pendiente`/`activado`/`cancelado`), más `expires_at`/`previous_plan`/
+  manual"**): plan, meses, método y estado
+  (`pendiente`/`activado`/`cancelado`) — `phone` también existe (columna
+  nullable) pero ya no la llena la app; queda solo por si alguna solicitud
+  vieja la trae —, más `expires_at`/`previous_plan`/
   `previous_plan_expires_at` (lo que "Activar" calculó y lo que había antes
   — lo que necesita "Revertir" para deshacerlo) y `reverted_at`. Cada quien
   puede insertar y ver las suyas (RLS), pero solo el panel de administrador
