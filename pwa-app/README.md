@@ -362,88 +362,6 @@ el comportamiento que tenía este prototipo antes de la migración —, desactiv
 esa opción en tu proyecto: **Authentication → Providers → Email → "Confirm
 email"**.
 
-## Correo de bienvenida al registrarse
-
-En cuanto alguien crea una cuenta, le llega un correo de bienvenida que
-confirma cuál es su usuario (su propio correo) — a propósito **nunca incluye
-la contraseña**: un correo no es un lugar seguro para guardarla en texto
-plano (puede quedarse para siempre en la bandeja de entrada, reenviarse por
-error, o filtrarse si el correo de quien sea se ve comprometido). En vez de
-eso, el correo explica que si la olvida puede pedir una nueva desde
-"¿Olvidaste tu contraseña?" en la pantalla de inicio de sesión — ver la
-siguiente sección.
-
-Lo manda una función de Netlify (`netlify/functions/send-welcome-email.mjs`,
-llamada por `register()` en `src/auth.js` justo después de que se crea la
-cuenta) usando [Resend](https://resend.com), un servicio de correo
-transaccional con capa gratuita (100 correos al día). Supabase Auth no sirve
-para esto: sus propios correos (confirmación de cuenta, recuperar contraseña)
-usan una plantilla fija que Supabase manda solo, no algo que el código de
-Memoreo controle.
-
-### Configurar Resend (una sola vez)
-
-1. Crea una cuenta gratis en [resend.com](https://resend.com) — con GitHub o
-   con correo y contraseña.
-2. En el dashboard, **API Keys → Create API Key**. Dale cualquier nombre
-   (por ejemplo "Memoreo") y deja los permisos por defecto ("Full access" o
-   "Sending access" — con eso basta). Copia la llave que te muestra: empieza
-   con `re_` y **solo se ve una vez** — si la pierdes, hay que crear otra.
-3. Agrega esa llave como `RESEND_API_KEY` en `pwa-app/.env` (para probar en
-   local con `netlify dev`) y como variable de entorno del sitio en Netlify
-   para producción (ver **"2. Configurar Stripe y el panel de administrador
-   en Netlify"** más abajo — ahí también va).
-4. **Sobre quién puede recibir el correo mientras no verifiques un dominio
-   propio:** una cuenta nueva de Resend, sin dominio verificado, solo puede
-   usar la dirección de prueba `onboarding@resend.dev` como remitente — y esa
-   dirección **solo** manda correos a la cuenta dueña de la API key (el
-   correo con el que te registraste en Resend), a nadie más. Es perfecto
-   para probar que todo funciona, pero para que le llegue el correo de
-   bienvenida a cualquier persona que se registre en Memoreo hace falta
-   verificar un dominio propio:
-   - En Resend, **Domains → Add Domain**, escribe un dominio que ya tengas
-     (por ejemplo `tudominio.com`).
-   - Resend te da unos registros DNS (TXT/MX/CNAME) para agregar en el
-     panel de tu proveedor de dominio (donde lo compraste). Puede tardar
-     desde minutos hasta un par de horas en verificarse.
-   - Una vez verificado, cambia `RESEND_FROM` (variable de entorno, ver
-     `.env.example`) de `Memoreo <onboarding@resend.dev>` a algo como
-     `Memoreo <bienvenida@tudominio.com>` — usando tu propio dominio ya
-     verificado — y vuelve a desplegar.
-5. Si `RESEND_API_KEY` no está configurada, la app sigue funcionando normal
-   — nomás no se manda el correo de bienvenida (se registra un aviso en los
-   logs de la función, pero nunca bloquea ni retrasa que alguien termine de
-   crear su cuenta, porque se llama sin esperar la respuesta).
-
-## "¿Olvidaste tu contraseña?"
-
-Ya que el correo de bienvenida a propósito no manda la contraseña (ver
-arriba), hace falta una manera real de recuperar el acceso si se olvida —
-eso es este flujo, que usa el sistema de recuperación de contraseña que ya
-trae Supabase Auth (no depende de Resend ni de ningún servicio nuevo):
-
-1. Desde "Iniciar sesión", el enlace **"¿Olvidaste tu contraseña?"** abre un
-   formulario que solo pide el correo.
-2. Supabase le manda un correo con una liga de un solo uso (su propia
-   plantilla, configurable en **Authentication → Email Templates → "Reset
-   Password"** en el dashboard de Supabase — igual que el correo de
-   confirmación de cuenta).
-3. Al tocar esa liga, vuelve a abrir Memoreo con los datos de la sesión de
-   recuperación pegados al final de la URL — la app los detecta sola (ver
-   `parseRecoveryHash` en `src/app.js`) y manda derecho a una pantalla de
-   "Nueva contraseña", sin pasar por inicio de sesión normal.
-4. Al escribir y confirmar la contraseña nueva, la cuenta queda con esa
-   contraseña y la sesión ya iniciada de una vez — no hace falta volver a
-   iniciar sesión a mano.
-
-**Importante al desplegar en producción:** en el dashboard de Supabase,
-**Authentication → URL Configuration**, agrega la URL real de tu sitio (por
-ejemplo `https://tu-sitio.netlify.app`) tanto en **Site URL** como en
-**Redirect URLs**. Sin esto, Supabase rechaza la liga de recuperación
-("redirect_to not allowed") aunque el resto de la app funcione bien — es un
-paso aparte de las variables de entorno, se configura en el dashboard de
-Supabase, no en Netlify.
-
 ## Cómo funciona la personalización
 
 Color de acento y foto de perfil se guardan de verdad en la cuenta (ver
@@ -930,11 +848,9 @@ management → Add a domain**).
    `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
    `STRIPE_PRICE_PREMIUM`, `STRIPE_PRICE_PREMIUM_PLUS`,
    `ADMIN_USERNAME`, `ADMIN_PASSWORD` (ver **"Cómo funciona el panel de
-   administrador"** más arriba), `RESEND_API_KEY` y `RESEND_FROM` (ver
-   **"Correo de bienvenida al registrarse"** más arriba) y
-   `VITE_WHATSAPP_NUMBER`, tu número real, para que funcione el botón "Pagar
-   vía WhatsApp" con el que se completa una solicitud de pago (ver **"Cómo
-   funciona el pago manual"**).
+   administrador"** más arriba) y `VITE_WHATSAPP_NUMBER`, tu número real,
+   para que funcione el botón "Pagar vía WhatsApp" con el que se completa
+   una solicitud de pago (ver **"Cómo funciona el pago manual"**).
 2. Vuelve a desplegar (**Deploys → Trigger deploy**) para que las funciones
    tomen las variables nuevas — no se aplican solas a un deploy ya hecho.
 3. En el dashboard de Stripe, **Developers → Webhooks → Add endpoint**, usa
@@ -1015,12 +931,6 @@ es cosa de un clic si se necesita más adelante, sin tocar código).
    final de **"Cómo funcionan las cuentas hoy"** más arriba. Por defecto
    Supabase la exige; si prefieres el alta instantánea de siempre,
    desactívala en **Authentication → Providers → Email**.
-6. En **Authentication → URL Configuration**, agrega la URL real de tu sitio
-   en **Site URL** y en **Redirect URLs** — lo necesita "¿Olvidaste tu
-   contraseña?" para poder volver a la app con la liga de recuperación (ver
-   **"¿Olvidaste tu contraseña?"** más arriba). En local con `netlify dev`
-   suele bastar con el `http://localhost:...` que ya trae Supabase por
-   defecto; en producción hace falta agregar a mano la URL de Netlify.
 
 ### Cómo está armado
 
@@ -1094,10 +1004,7 @@ es cosa de un clic si se necesita más adelante, sin tocar código).
 
 Hoy los recordatorios son "bajo demanda": hay que abrir la app para ver la
 pantalla de Recordatorios y su semaforización por urgencia. No hay envío de
-correo por vencimientos próximos — decisión deliberada, no se va a usar (los
-únicos correos que sí manda Memoreo hoy son el de bienvenida al registrarse y
-el de "¿Olvidaste tu contraseña?", ver esas secciones más arriba — ninguno
-de los dos tiene que ver con avisos de vencimiento). Para avisar sin que nadie
+correo — decisión deliberada, no se va a usar. Para avisar sin que nadie
 abra la app (una notificación push del navegador el día que corresponde)
 haría falta una función programada del lado del servidor (un Netlify
 Scheduled Function, por ejemplo) que consulte `public.documents` por
@@ -1118,10 +1025,6 @@ de verdad:
 - **Redimensionar imágenes antes de subirlas** (fotos de documentos y de
   perfil) — hoy se suben tal cual las entrega la cámara/selector de
   archivos del celular, sin comprimir.
-- **Verificar un dominio propio en Resend** — sin esto, el correo de
-  bienvenida (ver **"Correo de bienvenida al registrarse"**) solo le llega
-  a la propia cuenta de Resend, no a quien de verdad se registra en
-  Memoreo.
 
 Al evaluar Stripe contra PayPal para este caso — tarjeta como método
 principal, cobro recurrente automático y prueba gratis — Stripe salió
