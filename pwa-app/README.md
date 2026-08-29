@@ -206,6 +206,18 @@ deja ese camino trazado.
   compartir (real: usa la Web Share API nativa del sistema — o copia un
   resumen al portapapeles si el navegador no la soporta — ver `shareDoc` en
   `src/app.js`).
+- **Marcar como atendido**: cualquier elemento que aparece en "Vence pronto"
+  (Inicio) se puede marcar como ya atendido — por ejemplo, un pago de luz que
+  vence en 2 días pero que ya se hizo — con el botón redondo de palomita en
+  su propia tarjeta, o con "Marcar como atendido" en su detalle. En cuanto se
+  marca, desaparece de "Vence pronto" (aunque la fecha real siga igual de
+  cerca) y en su detalle aparece "Marcado como atendido" con un botón
+  "Deshacer" por si se marcó por error. No hay que desmarcarlo a mano cuando
+  vuelve a tocar pagar: para un gasto recurrente (Pagos, o Servicios dentro
+  de Hogar) reaparece solo en cuanto avanza al siguiente ciclo, y para
+  cualquier otra cosa con fecha fija (documentos, mantenimiento, salud,
+  préstamos) reaparece si se edita esa fecha — ver `isHandled()`/
+  `dueDateFor()` en `src/store.js`.
 - Buscar: por nombre y por categoría.
 - Recordatorios: agrupados por urgencia (vencidos, esta semana, este mes, más
   adelante). No hay recordatorios por correo electrónico — todo se revisa
@@ -865,11 +877,13 @@ es cosa de un clic si se necesita más adelante, sin tocar código).
    `profiles.plan_expires_at`, correr el archivo de nuevo los agrega solos.
    **Si ya tenías un proyecto de Supabase de una versión anterior de
    Memoreo (antes de que Hogar tuviera Documentos/Servicios/Mantenimiento,
-   o antes de que se quitara el celular de la solicitud de pago), sí hace
-   falta volver a correr `schema.sql` esta vez**: además de agregar
-   columnas que falten, ensancha una restricción (`documents_kind_check`)
-   que antes solo aceptaba `kind` en `'doc'`/`'activity'` — sin eso, guardar
-   un Documento o Servicio nuevo de Hogar fallaría —, y afloja
+   antes de que se quitara el celular de la solicitud de pago, o antes de
+   "Marcar como atendido"), sí hace falta volver a correr `schema.sql` esta
+   vez**: además de agregar columnas que falten (como
+   `documents.attended_until`, que sin ella hace fallar el botón "Marcar
+   como atendido"), ensancha una restricción (`documents_kind_check`) que
+   antes solo aceptaba `kind` en `'doc'`/`'activity'` — sin eso, guardar un
+   Documento o Servicio nuevo de Hogar fallaría —, y afloja
    `payment_requests.phone` (antes obligatoria, ahora opcional) — sin eso,
    una solicitud de pago nueva (que ya no manda celular) fallaría también.
    Los documentos y solicitudes ya guardados no se tocan ni se pierden.
@@ -909,7 +923,9 @@ es cosa de un clic si se necesita más adelante, sin tocar código).
   ese `user_id` contra `auth.uid()` (quién inició sesión) en cada
   select/insert/update/delete — es la base de datos, no el código de
   `src/store.js`, quien de verdad impide que una cuenta vea o modifique los
-  documentos de otra.
+  documentos de otra. `attended_until` guarda, para "Marcar como atendido"
+  (ver **"Funcionalidad"** más arriba), la fecha de vencimiento/pago que ya
+  se atendió — `null` cuando no se ha marcado nada.
 - **`public.payment_requests`** — un renglón por solicitud de pago manual
   (transferencia bancaria o PayPal, ver **"Cómo funciona el pago
   manual"**): plan, meses, método y estado
