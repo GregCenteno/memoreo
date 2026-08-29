@@ -35,6 +35,7 @@
 // pantalla nueva.)
 
 import { supabase, SIGNED_URL_TTL_SECONDS, setRememberSession } from './supabaseClient.js';
+import { openStoreForAccount } from './store.js';
 
 // Qué grupos de categorías pueden disparar un aviso (ver testNotification en
 // src/app.js, y notifGroupForCategory ahí mismo para el mapeo categoría →
@@ -139,11 +140,30 @@ function hasStoredSessionHint() {
   return false;
 }
 
-async function tryCurrentAccount() {
+// El perfil (nombre, plan, color…) y los documentos guardados son dos
+// cosas independientes en cuanto se sabe quién es la sesión — antes se
+// pedían una después de la otra (fetchProfile y luego, ya en src/app.js,
+// openStoreForAccount), dos viajes de red completos en fila en vez de al
+// mismo tiempo. Eso era buena parte de "tarda mucho en dar acceso" al
+// entrar, sobre todo en una conexión lenta: con Promise.all el tiempo
+// total pasa a ser el del más lento de los dos, no la suma de ambos.
+// openStoreForAccount() deja la lista de documentos ya cargada en `store`
+// (store.js) desde aquí mismo, así que quien llama a currentAccount()
+// (initApp, ver src/app.js) ya no necesita volver a pedirla aparte.
+//
+// `withDocuments` se apaga (ver currentAccount() más abajo) en las
+// llamadas que solo quieren refrescar datos de la CUENTA — por ejemplo
+// después de canjear un código promocional o de volver de Stripe — donde
+// los documentos no cambiaron para nada y pedirlos de nuevo sería un viaje
+// de red de más, justo lo que esta función intenta evitar.
+async function tryCurrentAccount(withDocuments) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session || !session.user) return null;
   try {
-    const profile = await fetchProfile(session.user.id);
+    const profilePromise = fetchProfile(session.user.id);
+    const [profile] = await Promise.all(
+      withDocuments ? [profilePromise, openStoreForAccount(session.user.id)] : [profilePromise]
+    );
     return buildAccount(session.user, profile);
   } catch (e) {
     console.warn('Memoreo: no se pudo cargar el perfil de la cuenta', e);
@@ -167,12 +187,12 @@ async function tryCurrentAccount() {
 // a la pantalla de inicio de sesión aunque su sesión siguiera siendo
 // válida — justo el problema de "tengo que iniciar sesión de nuevo cada
 // que abro la página" a pesar de haber elegido mantenerla iniciada.
-export async function currentAccount() {
-  const account = await tryCurrentAccount();
+export async function currentAccount({ withDocuments = true } = {}) {
+  const account = await tryCurrentAccount(withDocuments);
   if (account) return account;
   if (!hasStoredSessionHint()) return null;
   await new Promise((r) => setTimeout(r, 800));
-  return tryCurrentAccount();
+  return tryCurrentAccount(withDocuments);
 }
 
 export async function register({ name, email, password, remember = true }) {
@@ -204,6 +224,11 @@ export async function register({ name, email, password, remember = true }) {
   if (!data.session) {
     return { ok: true, needsConfirmation: true, account: null, isNew: true };
   }
+  // Cuenta recién creada: todavía no tiene documentos (initAccountDocs en
+  // src/app.js ya no siembra nada — ver la nota junto a esa función en
+  // store.js), así que no hay nada que valga la pena precargar en paralelo
+  // aquí. src/app.js sí llama a openStoreForAccount() después de esto, para
+  // dejar `store` listo antes de mostrar Inicio.
   const profile = await fetchProfile(data.user.id);
   const account = await buildAccount(data.user, profile);
   return { ok: true, account, isNew: true };
@@ -214,7 +239,15 @@ export async function login({ email, password, remember = true }) {
   setRememberSession(remember);
   const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: password || '' });
   if (error) return { ok: false, error: translateAuthError(error.message) };
-  const profile = await fetchProfile(data.user.id);
+  // Ver el comentario junto a tryCurrentAccount() más arriba: perfil y
+  // documentos se piden al mismo tiempo, no uno después del otro — es la
+  // misma espera que se sentía como lentitud al iniciar sesión. src/app.js
+  // ya NO vuelve a llamar a openStoreForAccount() después de login() (ver
+  // postRenderAuth), porque aquí ya queda hecho.
+  const [profile] = await Promise.all([
+    fetchProfile(data.user.id),
+    openStoreForAccount(data.user.id)
+  ]);
   const account = await buildAccount(data.user, profile);
   return { ok: true, account };
 }

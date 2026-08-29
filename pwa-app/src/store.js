@@ -247,16 +247,20 @@ export function docNoun(doc) {
   return 'documento';
 }
 
+// Es un gasto recurrente (Pagos, o "Servicios" dentro de Hogar — ver el
+// comentario junto a formMode() más arriba) — mismo criterio que antes
+// tenían por separado docInfo()/dueDateFor(), factorizado aquí para que
+// markAttended() (src/app.js) y las vistas que muestran el monto
+// (docCard()/detailView() en src/views.js) usen siempre la misma regla.
+export function isRecurringPago(doc) {
+  return doc.category === 'pagos' || (doc.category === 'hogar' && !isActivity(doc) && doc.kind !== 'documento');
+}
+
 // Picks the right label/urgency logic depending on what kind of entry this is.
 export function docInfo(doc) {
-  if (doc.category === 'pagos') return recurrenceInfo(doc);
   if (doc.category === 'prestamos') return loanInfo(doc);
   if (doc.category === 'salud') return healthInfo(doc);
-  // Igual que Pagos: "Servicios" dentro de Hogar es un gasto recurrente
-  // (agua, luz, gas, internet), así que calcula su próxima fecha sola en
-  // vez de usar el vencimiento fijo de un documento normal — ver el
-  // comentario junto a formMode() más arriba.
-  if (doc.category === 'hogar' && !isActivity(doc) && doc.kind !== 'documento') return recurrenceInfo(doc);
+  if (isRecurringPago(doc)) return recurrenceInfo(doc);
   return isActivity(doc) ? activityInfo(doc) : daysInfo(doc);
 }
 
@@ -268,9 +272,26 @@ export function docInfo(doc) {
 // doc.expiresAt, si tiene. Devuelve un Date real (o null si no hay fecha),
 // sin importar si doc.expiresAt venía como string ISO o ya como Date.
 export function dueDateFor(doc, today = new Date()) {
-  const recurring = doc.category === 'pagos' || (doc.category === 'hogar' && !isActivity(doc) && doc.kind !== 'documento');
-  if (recurring) return recurrenceInfo(doc, today).nextDate;
+  if (isRecurringPago(doc)) return recurrenceInfo(doc, today).nextDate;
   return doc.expiresAt ? new Date(doc.expiresAt) : null;
+}
+
+// Mantenimiento (kind === 'activity') solo debe guardar una próxima fecha
+// (draft.expiresAt, elegida con los chips de "Próxima vez en" en
+// addView()/views.js) cuando de verdad se pidió un recordatorio para ella
+// — ahí el campo de fecha vive DENTRO del bloque que se oculta al apagar
+// el recordatorio (ver reminderOn en defaultDraftForMode(), src/app.js).
+// Sin este saneo, alguien podía elegir esa fecha y luego apagar el
+// recordatorio pensando que así cancelaba todo, pero el campo se quedaba
+// guardado igual y el elemento aparecía con un "Próximo en X días"
+// fantasma que nadie pidió — el error reportado de registrar mantenimiento
+// "sin recordatorio" y que aun así saliera con una fecha próxima.
+// saveDraft() (src/app.js) siempre pasa el borrador por aquí antes de
+// armar lo que se guarda, así que también corrige solo cualquier registro
+// viejo que ya haya quedado así, en cuanto se vuelva a editar y guardar.
+export function draftExpiresAt(mode, draft) {
+  if (mode === 'activity' && !draft.reminderOn) return null;
+  return draft.expiresAt;
 }
 
 // Un elemento queda "atendido" para su vencimiento ACTUAL cuando
@@ -520,8 +541,18 @@ class Store {
   // editar — es un dato aparte que isHandled() compara contra la fecha
   // vigente cada vez que se dibuja la lista, sin que nadie tenga que
   // acordarse de limpiarlo cuando vuelve a tocar pagar.
-  async setAttended(id, due) {
+  //
+  // `clearAmount`, si es true (ver markAttended() en src/app.js — se pasa
+  // para los gastos recurrentes de Pagos y Servicios/Hogar), también borra
+  // el monto guardado al mismo tiempo: luz, agua e internet casi nunca
+  // cuestan lo mismo de un ciclo a otro, así que arrastrar el monto viejo
+  // como si fuera fijo era engañoso. El siguiente ciclo vuelve a mostrar
+  // "Monto por confirmar" (ver docCard()/detailView() en src/views.js)
+  // hasta que la persona lo actualice a mano — el recordatorio automático
+  // (la fecha, que calcula recurrenceInfo()) no se toca, sigue igual.
+  async setAttended(id, due, clearAmount) {
     const patch = { attended_until: due ? new Date(due).toISOString() : null };
+    if (clearAmount) patch.amount = null;
     const { data, error } = await supabase.from('documents').update(patch).eq('id', id).select().single();
     if (error) throw error;
     const doc = await this._hydrate(data);

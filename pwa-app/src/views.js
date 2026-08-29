@@ -4,7 +4,7 @@ import {
   CATS, catInfo, docInfo, isActivity, formMode, RECURRENCE_LABELS,
   HEALTH_TYPES, healthTypeInfo, healthTypeAllowed, planInfo, nonHealthCount, ACCENT_PALETTE, accentInfo,
   advancedHealthAllowed, colorPersonalizationAllowed, PAYMENT_DURATIONS, PAYMENT_METHODS,
-  WHATSAPP_NUMBER, whatsappPayMessage, isHandled
+  WHATSAPP_NUMBER, whatsappPayMessage, isHandled, isRecurringPago
 } from './store.js';
 
 // Inicio/Buscar/Avisos/Perfil — SOLO para el celular (ver .tabbar-inline en
@@ -90,6 +90,12 @@ export function docCard(doc) {
   // puso, ya que ahí el campo es opcional.
   if ((doc.category === 'prestamos' || doc.category === 'pagos' || doc.category === 'hogar' || isActivity(doc)) && doc.amount) {
     meta = `${esc(metaLabel(doc))} · ${formatMoney(doc.amount)} · ${esc(info.label)}`;
+  } else if (isRecurringPago(doc)) {
+    // Luz, agua, internet… casi nunca cuestan lo mismo de un ciclo a otro
+    // (ver markAttended() en app.js, que limpia el monto al marcar el
+    // ciclo actual como atendido) — en vez de no decir nada, invita a
+    // ponerlo/actualizarlo en cuanto se sepa.
+    meta = `${esc(metaLabel(doc))} · Monto por confirmar · ${esc(info.label)}`;
   }
   const dot = `<span class="urg-dot ${urgencyClass(info)}"></span>`;
   return `<div class="doc-card" data-open="${doc.id}">
@@ -918,9 +924,18 @@ export function detailView(doc, { plan } = {}) {
     html += `<div class="info-row"><span class="k">Tipo</span><span class="v wrap">${tipoLabel}</span></div>`;
   }
   if (isPago) {
+    // El monto de un pago recurrente (luz, agua, internet…) no es fijo —
+    // puede cambiar de un ciclo a otro, y se limpia solo al marcar el ciclo
+    // actual como atendido (ver markAttended() en app.js). En vez de
+    // ocultar el renglón cuando todavía no se sabe, invita a ponerlo: el
+    // texto es un botón que abre directo la edición (mismo destino que el
+    // lápiz de arriba), para no tener que ir a buscarlo.
+    const montoValue = doc.amount
+      ? formatMoney(doc.amount)
+      : `<button type="button" class="link-inline" data-edit="${doc.id}">Monto por confirmar</button>`;
     html += `<div class="info-row"><span class="k">Frecuencia</span><span class="v wrap">${esc(RECURRENCE_LABELS[doc.recurrence] || '—')}</span></div>
     <div class="info-row"><span class="k">Próximo pago</span><span class="v">${info.nextDate ? fmtDate(info.nextDate) : 'Sin fecha'}</span></div>
-    ${doc.amount ? `<div class="info-row"><span class="k">Monto</span><span class="v">${formatMoney(doc.amount)}</span></div>` : ''}
+    <div class="info-row"><span class="k">Monto</span><span class="v">${montoValue}</span></div>
     <div class="info-row"><span class="k">Recordatorio</span><span class="v wrap">${doc.reminderDays ? `${doc.reminderDays} día${doc.reminderDays === 1 ? '' : 's'} antes` : 'Desactivado'}</span></div>`;
   } else if (isPrestamo) {
     html += `<div class="info-row"><span class="k">Persona</span><span class="v wrap">${esc(doc.person || '—')}</span></div>

@@ -1,7 +1,7 @@
 import {
   store, catInfo, docInfo, formMode, docNoun, openStoreForAccount, clearStore, initAccountDocs,
   planInfo, nonHealthCount, healthTypeAllowed, healthTypeInfo, planForHealthType, accentInfo, colorPersonalizationAllowed,
-  whatsappPayMessage, dueDateFor
+  whatsappPayMessage, dueDateFor, isRecurringPago, draftExpiresAt
 } from './store.js';
 import { addDays, fromInputDate, fmtDate } from './utils.js';
 import { icon, logoMark } from './icons.js';
@@ -132,7 +132,9 @@ export async function initApp(root) {
   const existing = await currentAccount();
   if (existing) {
     state.account = existing;
-    await openStoreForAccount(existing.id);
+    // currentAccount() (src/auth.js) ya pidió los documentos en paralelo
+    // con el perfil y dejó `store` listo — pedirlos otra vez aquí sería un
+    // viaje de red de más.
     state.route = 'home';
     applyAccentColor(effectiveAccentColor(existing));
   } else {
@@ -494,8 +496,16 @@ function postRenderAuth() {
     if (result.ok) {
       state.authError = null;
       state.account = result.account;
-      if (mode === 'signup') await initAccountDocs(result.account.id, false);
-      await openStoreForAccount(result.account.id);
+      if (mode === 'signup') {
+        // Cuenta nueva: register() (src/auth.js) no precargó documentos
+        // (no hay ninguno todavía), así que sí hace falta pedirlos aquí.
+        await initAccountDocs(result.account.id, false);
+        await openStoreForAccount(result.account.id);
+      }
+      // En "Iniciar sesión", login() ya dejó `store` listo en paralelo con
+      // el perfil (ver el comentario junto a login() en auth.js) — pedirlo
+      // otra vez aquí sería un viaje de red de más, justo lo que se quería
+      // evitar.
       applyAccentColor(effectiveAccentColor(result.account));
       trackAccount(result.account);
       go('home');
@@ -1091,7 +1101,19 @@ function postRenderAdd() {
     reminderSwitch.addEventListener('click', function () {
       state.draft.reminderOn = !state.draft.reminderOn;
       this.classList.toggle('on', state.draft.reminderOn);
-      document.getElementById('reminderDaysWrap').style.display = state.draft.reminderOn ? 'block' : 'none';
+      const wrap = document.getElementById('reminderDaysWrap');
+      if (wrap) wrap.style.display = state.draft.reminderOn ? 'block' : 'none';
+      // En Mantenimiento, los chips de "Próxima vez en" viven dentro de
+      // este mismo bloque (ver addView() en views.js) — al apagar el
+      // recordatorio se limpia también la fecha que se hubiera elegido ahí,
+      // para que no se quede guardada de forma invisible (ver
+      // draftExpiresAt() en store.js, que además la vuelve a limpiar al
+      // guardar por si acaso). Con el recordatorio apagado, Mantenimiento
+      // es solo una bitácora de lo que ya se hizo, sin fecha futura.
+      if (mode === 'activity' && !state.draft.reminderOn) {
+        state.draft.expiresAt = null;
+        if (dateInput) dateInput.value = '';
+      }
     });
   }
   const reminderChips = document.getElementById('reminderChips');
@@ -1137,11 +1159,16 @@ async function saveDraft() {
     ? (d.direction === 'me_deben' ? 'Préstamo a ' : 'Préstamo de ') + d.person.trim()
     : d.name.trim();
 
+  // Ver draftExpiresAt() en store.js: en Mantenimiento sin recordatorio no
+  // se guarda ninguna próxima fecha, sin importar qué haya quedado antes en
+  // el borrador — así un registro sin recordatorio nunca sale con un
+  // "Próximo en X días" que nadie pidió.
+  const finalExpiresAt = draftExpiresAt(mode, d);
   const payload = {
     name: finalName,
     category: d.category,
     kind: catInfo(d.category).activityCapable ? d.kind : null,
-    expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
+    expiresAt: finalExpiresAt ? finalExpiresAt.toISOString() : null,
     performedAt: d.performedAt ? d.performedAt.toISOString() : null,
     reminderDays: d.reminderOn ? d.reminderDays : null,
     recurrence: mode === 'pago' ? d.recurrence : null,
@@ -1228,8 +1255,16 @@ async function markAttended(id) {
   if (!doc) return;
   const due = dueDateFor(doc);
   if (!due) return;
+  // Los pagos recurrentes (Pagos, o Servicios dentro de Hogar) casi nunca
+  // cuestan lo mismo de un ciclo a otro (luz, agua, internet…) — al marcar
+  // el ciclo actual como atendido, se limpia también el monto guardado
+  // para que el siguiente ciclo pida confirmarlo de nuevo en vez de
+  // arrastrar el de antes como si fuera fijo (ver setAttended() en
+  // store.js, y "Monto por confirmar" en views.js). El recordatorio
+  // automático (la fecha) sigue funcionando exactamente igual.
+  const recurringPayment = isRecurringPago(doc);
   try {
-    await store.setAttended(id, due);
+    await store.setAttended(id, due, recurringPayment);
     toast('Marcado como atendido');
     render();
   } catch (err) {
@@ -1300,7 +1335,9 @@ function wirePromoCard() {
       btn.textContent = originalLabel;
       return;
     }
-    const updated = await currentAccount();
+    // Solo cambió el plan, no los documentos — no hace falta volver a
+    // pedirlos (ver withDocuments en currentAccount(), src/auth.js).
+    const updated = await currentAccount({ withDocuments: false });
     if (updated) state.account = updated;
     applyAccentColor(effectiveAccentColor(state.account));
     trackAccount(state.account);
@@ -1406,7 +1443,9 @@ async function cancelPremiumTrial() {
 async function refreshAccountAfterPayment() {
   if (!state.account) return;
   toast('Revisando si ya se activó tu plan…');
-  const updated = await currentAccount();
+  // Solo cambió el plan, no los documentos (ver withDocuments en
+  // currentAccount(), src/auth.js).
+  const updated = await currentAccount({ withDocuments: false });
   if (updated) state.account = updated;
   applyAccentColor(effectiveAccentColor(state.account));
   render();
