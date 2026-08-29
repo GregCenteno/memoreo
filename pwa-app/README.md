@@ -302,7 +302,24 @@ deja ese camino trazado.
   registro de los pagos de tu propia membresía de Memoreo (no un lugar para
   guardar tus propias facturas de compra) — muestra el plan activo y hasta
   cuándo vale, según la fecha que le puso el administrador al activar tu
-  última solicitud de pago. Nunca manda a ningún portal externo.
+  última solicitud de pago, y debajo un **historial de pagos**: cada vez
+  que se activó una solicitud tuya, con el plan, los meses, el método y el
+  monto (por ejemplo "1 mes de Premium" en agosto, "6 meses de Premium
+  Plus" en septiembre) — ver `paymentHistory()` en `src/auth.js`. Solo
+  cuenta lo que sí se activó; una solicitud todavía pendiente o cancelada
+  no aparece aquí. Nunca manda a ningún portal externo.
+- **Código promocional**: "Elige tu plan" trae, debajo de los tres planes,
+  un cuarto recuadro para canjear un código y obtener unos días gratis de
+  Premium Plus — hoy hay uno sembrado, `MEMOREO15` (15 días, hasta 15
+  personas distintas). A diferencia de Premium/Premium Plus, esto sube el
+  plan al toque, sin esperar a que nadie lo active a mano: toda la
+  validación (que el código exista, siga activo, esta cuenta no lo haya
+  usado antes, y no se haya llegado al límite de usos) la hace una función
+  de Postgres (`redeem_promo_code()`, ver **"Base de datos real
+  (Supabase)"**) para que nadie pueda otorgarse el plan escribiendo directo
+  en la base de datos ni colarse más allá del límite. Se pueden agregar más
+  códigos insertando otro renglón en `public.promo_codes` desde el SQL
+  Editor de Supabase, sin tocar código.
 - **Seguridad y privacidad**: Perfil → "Seguridad y privacidad" permite
   cambiar la contraseña de verdad (Supabase Auth valida la contraseña actual
   antes de aceptar la nueva) y eliminar la cuenta por completo — borra de
@@ -877,16 +894,21 @@ es cosa de un clic si se necesita más adelante, sin tocar código).
    `profiles.plan_expires_at`, correr el archivo de nuevo los agrega solos.
    **Si ya tenías un proyecto de Supabase de una versión anterior de
    Memoreo (antes de que Hogar tuviera Documentos/Servicios/Mantenimiento,
-   antes de que se quitara el celular de la solicitud de pago, o antes de
-   "Marcar como atendido"), sí hace falta volver a correr `schema.sql` esta
-   vez**: además de agregar columnas que falten (como
-   `documents.attended_until`, que sin ella hace fallar el botón "Marcar
-   como atendido"), ensancha una restricción (`documents_kind_check`) que
-   antes solo aceptaba `kind` en `'doc'`/`'activity'` — sin eso, guardar un
-   Documento o Servicio nuevo de Hogar fallaría —, y afloja
-   `payment_requests.phone` (antes obligatoria, ahora opcional) — sin eso,
-   una solicitud de pago nueva (que ya no manda celular) fallaría también.
-   Los documentos y solicitudes ya guardados no se tocan ni se pierden.
+   antes de que se quitara el celular de la solicitud de pago, antes de
+   "Marcar como atendido", o antes de los códigos promocionales), sí hace
+   falta volver a correr `schema.sql` esta vez**: además de agregar
+   columnas que falten (como `documents.attended_until`, que sin ella hace
+   fallar el botón "Marcar como atendido") y crear las tablas
+   `promo_codes`/`promo_redemptions` y la función `redeem_promo_code()` que
+   usa el cuarto recuadro de "Elige tu plan" (sin esto, canjear un código
+   falla), ensancha una restricción (`documents_kind_check`) que antes solo
+   aceptaba `kind` en `'doc'`/`'activity'` — sin eso, guardar un Documento o
+   Servicio nuevo de Hogar fallaría —, y afloja `payment_requests.phone`
+   (antes obligatoria, ahora opcional) — sin eso, una solicitud de pago
+   nueva (que ya no manda celular) fallaría también. Los documentos y
+   solicitudes ya guardados no se tocan ni se pierden, y el código
+   promocional `MEMOREO15` (15 días de Premium Plus, hasta 15 personas)
+   queda sembrado solo, sin pisar los canjes que ya tuviera si ya existía.
 3. En **Project Settings → API**, copia:
    - **Project URL** → es el valor de `VITE_SUPABASE_URL` y `SUPABASE_URL`
      (el mismo valor, en dos variables distintas).
@@ -937,6 +959,17 @@ es cosa de un clic si se necesita más adelante, sin tocar código).
   puede insertar y ver las suyas (RLS), pero solo el panel de administrador
   (con la llave service_role, que ignora RLS) puede cambiar el estado — así
   nadie puede activarse un plan a sí mismo.
+- **`public.promo_codes`** / **`public.promo_redemptions`** — el catálogo de
+  códigos promocionales (código, plan que otorgan, cuántos días, cuántos
+  usos como máximo) y un renglón por cada vez que alguien canjeó uno,
+  respectivamente — ver **"Código promocional"** más arriba. Row Level
+  Security sin ninguna policy en ninguna de las dos: nadie puede leerlas ni
+  escribirlas directo, ni siquiera con sesión iniciada — todo pasa por la
+  función `redeem_promo_code(p_code)` (`security definer`, valida con
+  `auth.uid()` de quien la llama), que existe, revisa el límite de usos y
+  otorga el plan todo dentro de una sola transacción con bloqueo de
+  renglón, para que dos personas canjeando el mismo código al mismo tiempo
+  no se puedan colar más allá del máximo.
 - **`public.admin_credentials`** — un solo renglón (usuario + contraseña con
   hash) para "Cambiar contraseña" en el panel de administrador — ver **"Cómo
   funciona el panel de administrador"**. Row Level Security sin ninguna
