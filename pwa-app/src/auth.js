@@ -140,6 +140,45 @@ function hasStoredSessionHint() {
   return false;
 }
 
+// Quita a mano cualquier token de sesión guardado (mismo patrón de nombre
+// que hasStoredSessionHint arriba) sin pasar por Supabase — es el respaldo
+// de forceLocalSignOut() más abajo para cuando el propio signOut() de
+// Supabase no se pudo completar a tiempo (ver esa función).
+function clearStoredSessionTokens() {
+  try {
+    const re = /^sb-.*-auth-token$/;
+    [localStorage, sessionStorage].forEach((s) => {
+      const toRemove = [];
+      for (let i = 0; i < s.length; i++) {
+        const k = s.key(i);
+        if (re.test(k || '')) toRemove.push(k);
+      }
+      toRemove.forEach((k) => s.removeItem(k));
+    });
+  } catch (e) { /* sin storage disponible */ }
+}
+
+// Ninguna llamada de red (a Supabase Auth o a las tablas) debe poder dejar
+// a alguien esperando para siempre: con wifi o datos móviles inestables, una
+// petición puede quedarse "colgada" sin responder ni con éxito ni con
+// error — sin este límite, eso se sentía exactamente como "el botón no
+// funciona" (iniciar sesión que nunca termina de cargar, cerrar sesión que
+// no hace nada al tocarlo). Si `promise` no resuelve dentro de `ms`, esto
+// se rechaza con un mensaje claro en español en vez de dejar la promesa
+// original colgada para siempre (la original sigue corriendo de fondo,
+// pero ya no bloquea a quien está esperando una respuesta).
+const NETWORK_TIMEOUT_MS = 15000;
+const NETWORK_TIMEOUT_MESSAGE = 'No se pudo conectar — revisa tu internet e intenta de nuevo.';
+function withTimeout(promise, ms, message) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 // El perfil (nombre, plan, color…) y los documentos guardados son dos
 // cosas independientes en cuanto se sabe quién es la sesión — antes se
 // pedían una después de la otra (fetchProfile y luego, ya en src/app.js,
@@ -161,11 +200,17 @@ async function tryCurrentAccount(withDocuments) {
   if (!session || !session.user) return null;
   try {
     const profilePromise = fetchProfile(session.user.id);
-    const [profile] = await Promise.all(
-      withDocuments ? [profilePromise, openStoreForAccount(session.user.id)] : [profilePromise]
+    const [profile] = await withTimeout(
+      Promise.all(withDocuments ? [profilePromise, openStoreForAccount(session.user.id)] : [profilePromise]),
+      NETWORK_TIMEOUT_MS,
+      NETWORK_TIMEOUT_MESSAGE
     );
     return buildAccount(session.user, profile);
   } catch (e) {
+    // Incluye el caso de que se haya agotado el tiempo de espera (arriba) —
+    // en ambos casos es mejor mandar a la persona a la pantalla de bienvenida
+    // (para que pueda reintentar a mano) que dejar la pantalla de "Cargando…"
+    // pegada para siempre.
     console.warn('Memoreo: no se pudo cargar el perfil de la cuenta', e);
     return null;
   }
@@ -237,23 +282,67 @@ export async function register({ name, email, password, remember = true }) {
 export async function login({ email, password, remember = true }) {
   const cleanEmail = (email || '').trim().toLowerCase();
   setRememberSession(remember);
-  const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: password || '' });
+  let data, error;
+  try {
+    // Con timeout: sin esto, una conexión inestable podía dejar esta
+    // llamada colgada para siempre — el botón "Iniciar sesión" se quedaba
+    // deshabilitado sin ningún aviso, exactamente como "tarda mucho y no
+    // entra". Con el límite, en vez de eso se muestra un error claro y el
+    // botón se vuelve a habilitar (ver el manejador en app.js) para
+    // reintentar.
+    ({ data, error } = await withTimeout(
+      supabase.auth.signInWithPassword({ email: cleanEmail, password: password || '' }),
+      NETWORK_TIMEOUT_MS,
+      NETWORK_TIMEOUT_MESSAGE
+    ));
+  } catch (e) {
+    return { ok: false, error: e.message || NETWORK_TIMEOUT_MESSAGE };
+  }
   if (error) return { ok: false, error: translateAuthError(error.message) };
   // Ver el comentario junto a tryCurrentAccount() más arriba: perfil y
   // documentos se piden al mismo tiempo, no uno después del otro — es la
   // misma espera que se sentía como lentitud al iniciar sesión. src/app.js
   // ya NO vuelve a llamar a openStoreForAccount() después de login() (ver
   // postRenderAuth), porque aquí ya queda hecho.
-  const [profile] = await Promise.all([
-    fetchProfile(data.user.id),
-    openStoreForAccount(data.user.id)
-  ]);
-  const account = await buildAccount(data.user, profile);
-  return { ok: true, account };
+  try {
+    const [profile] = await withTimeout(
+      Promise.all([fetchProfile(data.user.id), openStoreForAccount(data.user.id)]),
+      NETWORK_TIMEOUT_MS,
+      NETWORK_TIMEOUT_MESSAGE
+    );
+    const account = await buildAccount(data.user, profile);
+    return { ok: true, account };
+  } catch (e) {
+    // La sesión en Supabase Auth ya quedó abierta (signInWithPassword arriba
+    // sí terminó) — lo que no se pudo cargar a tiempo fue el perfil/los
+    // documentos. Se avisa como error para no dejar a la persona en una
+    // pantalla a medias; como la sesión ya está guardada en este navegador,
+    // basta con que vuelva a intentar (o vuelva a abrir la app) para que
+    // currentAccount() la recupere normalmente, ahora sin tener que volver a
+    // escribir la contraseña.
+    return { ok: false, error: e.message || NETWORK_TIMEOUT_MESSAGE };
+  }
 }
 
+// Cerrar sesión avisa al servidor (para invalidar el token ahí también),
+// pero eso es una llamada de red — si la conexión está mal y esa llamada se
+// queda colgada, antes el botón de "Cerrar sesión" se sentía como que "no
+// funciona" (nunca terminaba). Con un límite más corto que el de
+// login/currentAccount (aquí no hace falta tanta paciencia: cerrar sesión
+// en este navegador no depende de verdad de que el servidor conteste), y
+// si aun así no se pudo confirmar a tiempo, se borra el token guardado a
+// mano (clearStoredSessionTokens arriba) para que este navegador quede
+// desconectado de todas formas — src/app.js (doLogout) ya limpia el resto
+// del estado de la app y manda a la pantalla de bienvenida pase lo que
+// pase aquí.
+const LOGOUT_TIMEOUT_MS = 6000;
 export async function logout() {
-  await supabase.auth.signOut();
+  try {
+    await withTimeout(supabase.auth.signOut(), LOGOUT_TIMEOUT_MS, 'timeout cerrando sesión');
+  } catch (e) {
+    console.warn('Memoreo: no se pudo confirmar el cierre de sesión con el servidor a tiempo — se cierra localmente', e);
+    clearStoredSessionTokens();
+  }
 }
 
 // Downgrades to Gratis — the only plan change that doesn't need Stripe,

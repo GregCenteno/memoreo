@@ -474,9 +474,23 @@ function postRenderAuth() {
     submitBtn.disabled = true;
     const email = emailInput.value.trim();
     const password = passwordInput.value;
-    const result = mode === 'signup'
-      ? await register({ name: nameInput.value.trim(), email, password, remember: rememberSession })
-      : await login({ email, password, remember: rememberSession });
+    let result;
+    try {
+      result = mode === 'signup'
+        ? await register({ name: nameInput.value.trim(), email, password, remember: rememberSession })
+        : await login({ email, password, remember: rememberSession });
+    } catch (e) {
+      // Red de seguridad: register()/login() (src/auth.js) ya tienen su
+      // propio límite de tiempo para nunca quedarse colgados, pero si de
+      // todos modos algo truena aquí sin haberlo atrapado adentro, este
+      // catch evita que el botón se quede deshabilitado para siempre sin
+      // ningún aviso — exactamente el "tarda mucho y no entra" reportado.
+      // go('auth', ...) vuelve a pintar el formulario ya con el botón
+      // habilitado (postRenderAuth llama a validate() de nuevo al entrar).
+      state.authError = e.message || 'No se pudo conectar — revisa tu internet e intenta de nuevo.';
+      go('auth', { mode });
+      return;
+    }
     if (result.ok && result.needsConfirmation) {
       // El proyecto de Supabase tiene activada la confirmación por correo:
       // la cuenta ya existe pero todavía no hay sesión abierta hasta que la
@@ -784,7 +798,18 @@ function openAdminChangePassword() {
 }
 
 async function doLogout() {
-  await logout();
+  // logout() (src/auth.js) ya tiene su propio límite de tiempo y se
+  // encarga de dejar este navegador desconectado aunque el servidor no
+  // conteste a tiempo — este try/catch es nada más una red de seguridad
+  // extra para que, pase lo que pase ahí adentro, el resto de esta función
+  // (limpiar el estado local y volver a la pantalla de bienvenida) SIEMPRE
+  // se ejecute. Antes, cualquier error sin atrapar aquí dejaba el botón de
+  // "Cerrar sesión" pareciendo que no hacía nada.
+  try {
+    await logout();
+  } catch (e) {
+    console.warn('Memoreo: error inesperado al cerrar sesión, se limpia localmente de todas formas', e);
+  }
   clearStore();
   state.account = null;
   state.editingId = null;
